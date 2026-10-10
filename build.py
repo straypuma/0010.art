@@ -77,19 +77,23 @@ def build_collection(col, items):
         big = None if max(w, h) <= LARGE else ((LARGE, 0) if w >= h else (0, LARGE))
         webp(src, os.path.join(out_dir, name), QUALITY[LARGE], big)
         keep.add(name)
+        large_w = w if not big else (LARGE if w >= h else round(w * LARGE / h))
 
         title, year = item["title"], item.get("year", "")
         alt = f"{title}, {year}" if col == "works" else title
         caption = (f'<span class="t">{html.escape(title)}</span>'
                    + (f' <span class="y">{year}</span>' if col == "works" else ""))
-        def link(sizes, cls=""):
+        def link(sizes, cls="", large=False):
+            widths = srcset + ([f"{base}-{LARGE}.webp {large_w}w"] if large else [])
             return (f'<a{cls} href="{base}-{LARGE}.webp" data-lb data-title="{html.escape(title)}"'
-                    f' data-year="{year}"><img src="{base}-480.webp" srcset="{", ".join(srcset)}"'
+                    f' data-year="{year}"><img src="{base}-480.webp" srcset="{", ".join(widths)}"'
                     f' sizes="{sizes}" width="{w}" height="{h}" alt="{html.escape(alt)}"'
                     f' loading="lazy" decoding="async"></a>')
         rows.append(f'<li><figure>{link(SIZES[col])}<figcaption>{caption}</figcaption></figure></li>')
-        # Standalone use elsewhere on the page, e.g. the auction lots.
-        SINGLES[f"{col}/{item['file']}"] = link("(min-width: 760px) 55vw, 92vw", ' class="art"')
+        # Standalone use elsewhere on the page, e.g. the auction lots: shown ~650px wide,
+        # so they also offer the 2000px file for Retina screens.
+        SINGLES[f"{col}/{item['file']}"] = link(
+            "(min-width: 1280px) 650px, (min-width: 760px) 52vw, 92vw", ' class="art"', large=True)
 
     for f in os.listdir(out_dir):
         if f not in keep:
