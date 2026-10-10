@@ -1,0 +1,4 @@
+# Full-resolution source files: kept locally, the site publishes WebP versions.
+originals/
+.DS_Store
+.claude/
