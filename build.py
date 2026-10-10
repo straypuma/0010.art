@@ -22,9 +22,12 @@ LARGE = 2000             # long edge for the lightbox
 QUALITY = {480: 76, 960: 74, LARGE: 80}
 
 # `sizes` attribute per collection, matching the grid columns in style.css.
+# Works pieces share one height (clamp(200px, 25vw, 320px)), so their width depends
+# on their proportions and each gets its own value.
 SIZES = {
-    "works": "(min-width: 1100px) 300px, (min-width: 600px) 30vw, 92vw",
-    "face-value": "(min-width: 1100px) 300px, (min-width: 600px) 30vw, 92vw",
+    "works": lambda w, h: (f"(min-width: 1280px) {round(320 * w / h)}px, "
+                           f"(min-width: 800px) {round(25 * w / h, 1)}vw, {round(200 * w / h)}px"),
+    "face-value": "(min-width: 1100px) 230px, (min-width: 600px) 22vw, 46vw",
     "curtains": "(min-width: 1100px) 190px, (min-width: 600px) 22vw, 46vw",
 }
 SINGLES = {}  # "collection/file" -> <a><img></a>, for <!-- img:... --> markers
@@ -89,7 +92,9 @@ def build_collection(col, items):
                     f' data-year="{year}"><img src="{base}-480.webp" srcset="{", ".join(widths)}"'
                     f' sizes="{sizes}" width="{w}" height="{h}" alt="{html.escape(alt)}"'
                     f' loading="lazy" decoding="async"></a>')
-        rows.append(f'<li><figure>{link(SIZES[col])}<figcaption>{caption}</figcaption></figure></li>')
+        sizes = SIZES[col](w, h) if callable(SIZES[col]) else SIZES[col]
+        ratio = f' style="--r:{w / h:.4f}"' if col == "works" else ""
+        rows.append(f'<li{ratio}><figure>{link(sizes)}<figcaption>{caption}</figcaption></figure></li>')
         # Standalone use elsewhere on the page, e.g. the auction lots: shown ~650px wide,
         # so they also offer the 2000px file for Retina screens.
         SINGLES[f"{col}/{item['file']}"] = link(

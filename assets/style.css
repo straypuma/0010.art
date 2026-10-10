@@ -79,20 +79,31 @@ h2 { margin: 0 0 28px; font: 400 clamp(48px, 9vw, 112px)/.95 var(--serif); lette
 .btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 22px; border-radius: 999px; background: var(--ink); color: var(--paper); text-decoration: none; font: 400 13px/1 var(--mono); letter-spacing: .02em; }
 .btn:hover { background: var(--accent); }
 
-/* ---- Gallery wall: fixed cells keep row order and stop layout shift ---- */
-.grid { --min: 250px; --cell: 4 / 5; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--min), 1fr)); gap: clamp(36px, 5vw, 64px) clamp(16px, 2.6vw, 36px); }
-#curtains .grid { --min: 150px; --cell: 9 / 16; row-gap: clamp(28px, 4vw, 48px); }
-#facevalue .grid { --cell: 1; }
+/* ---- Galleries: sizes are always explicit (a height for works, a column width for
+   the grids), so every browser engine lays them out identically. ---- */
+.grid { list-style: none; margin: 0; padding: 0; }
 .grid figure { margin: 0; }
 .grid a, .lot .art { cursor: zoom-in; }
-.grid a { display: flex; align-items: flex-end; justify-content: center; aspect-ratio: var(--cell); }
-.grid img { max-width: 100%; max-height: 100%; width: auto; height: auto; box-shadow: 0 1px 2px rgb(42 36 33 / .1); }
-.grid figcaption { margin-top: 14px; text-align: center; font-size: 15px; line-height: 1.35; }
+.grid a { display: block; }
+.grid img { box-shadow: 0 1px 2px rgb(42 36 33 / .1); }
+.grid figcaption { margin-top: 12px; text-align: center; font-size: 15px; line-height: 1.35; }
 .grid .t { font-style: italic; }
-.grid .y { display: block; margin-top: 3px; font: 400 11px/1.4 var(--mono); letter-spacing: .05em; color: var(--ink-2); }
+.grid .y { display: block; margin-top: 2px; font: 400 11px/1.4 var(--mono); letter-spacing: .05em; color: var(--ink-2); }
+
+/* Works: mixed proportions, so every piece gets the same height and its own width. */
+#works .grid { --h: clamp(200px, 25vw, 320px); display: flex; flex-wrap: wrap; justify-content: center; gap: 36px 20px; }
+#works .grid li { flex: none; width: min(calc(var(--h) * var(--r)), 100%); } /* --r = width/height, set per piece */
+#works .grid img { width: 100%; height: auto; }
+#works .grid figcaption { width: 0; min-width: 100%; } /* long titles wrap instead of widening the piece */
+
+/* Curtains and Face Value: one shape per collection, so a plain grid. */
+#curtains .grid, #facevalue .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--min), 1fr)); gap: 28px 16px; }
+#curtains .grid { --min: 160px; }
+#facevalue .grid { --min: 220px; }
+#curtains .grid img, #facevalue .grid img { width: 100%; height: auto; }
 #curtains .grid figcaption { margin-top: 10px; font: 400 11px/1.4 var(--mono); letter-spacing: .05em; color: var(--ink-2); }
 #curtains .grid .t { font-style: normal; }
-@media (max-width: 600px) { .grid { --min: 100%; } #curtains .grid { --min: 130px; } }
+@media (max-width: 600px) { #curtains .grid { --min: 130px; } #facevalue .grid { --min: 140px; } }
 
 /* ---- Auction lots ---- */
 .lot { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: clamp(28px, 5vw, 80px); align-items: center; padding: clamp(36px, 5vw, 64px) 0; border-top: 1px solid var(--rule); }
