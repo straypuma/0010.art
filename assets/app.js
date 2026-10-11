@@ -1,5 +1,6 @@
 // 0010.art: progressive enhancement only. The page works without this file;
-// it only adds view titles and the lightbox, and runs only in response to clicks, keys and swipes.
+// it adds view titles, justified rows for works and the lightbox, and runs only in
+// response to clicks, keys, swipes and size changes.
 (() => {
   const $ = (s, r = document) => r.querySelector(s);
 
@@ -10,6 +11,63 @@
   };
   addEventListener('hashchange', setTitle);
   setTitle();
+
+  // Works: justified rows. Each row spans the full width at one shared height, and the
+  // row breaks are chosen (dynamic programming over the pieces) so that row heights stay
+  // as close as possible to a target. .wide (16:9) pieces get a full-width row of their
+  // own. Runs only when the grid's width changes: ResizeObserver reports it after layout
+  // and before paint, so the fallback layout never flashes.
+  const works = $('#works .grid');
+  if (works && window.ResizeObserver) {
+    const items = [...works.children].map(li => ({
+      li, r: parseFloat(li.style.getPropertyValue('--r')), wide: li.classList.contains('wide'),
+    }));
+    const layout = W => {
+      const gap = parseFloat(getComputedStyle(works).columnGap) || 0;
+      const T = Math.max(180, Math.min(440, W * 0.3));
+      const setRow = (a, b, h) => {
+        for (let k = a; k < b; k++) items[k].li.style.width = `${(h * items[k].r).toFixed(2)}px`;
+      };
+      // Lays out items[from..to) as rows. Only the gallery's final row may stay
+      // under-full (kept at the target height instead of being stretched).
+      const solve = (from, to, final) => {
+        const n = to - from, best = [0], prev = [0];
+        for (let j = 1; j <= n; j++) {
+          best[j] = Infinity;
+          let sum = 0;
+          for (let i = j - 1; i >= 0; i--) {
+            sum += items[from + i].r;
+            const h = (W - gap * (j - i - 1)) / sum;
+            const cost = best[i] + (j === n && final && h > T ? 0 : (h - T) ** 2);
+            if (cost < best[j]) { best[j] = cost; prev[j] = i; }
+            if (h < T / 2) break; // more pieces would only make the row shorter
+          }
+        }
+        for (let j = n; j > 0; j = prev[j]) {
+          const a = from + prev[j], b = from + j;
+          let sum = 0;
+          for (let k = a; k < b; k++) sum += items[k].r;
+          let h = (W - 1 - gap * (b - a - 1)) / sum; // 1px slack: rounding never wraps a row
+          if (b === to) h = final ? Math.min(h, T) : Math.min(h, T * 1.5);
+          setRow(a, b, h);
+        }
+      };
+      let start = 0;
+      items.forEach((it, k) => {
+        if (!it.wide) return;
+        if (k > start) solve(start, k, false);
+        it.li.style.width = '100%';
+        start = k + 1;
+      });
+      if (start < items.length) solve(start, items.length, true);
+    };
+    let lastW = 0;
+    works.classList.add('justified');
+    new ResizeObserver(([entry]) => {
+      const W = Math.floor(entry.contentRect.width);
+      if (W && W !== lastW) { lastW = W; layout(W); } // 0 while the works view is hidden
+    }).observe(works);
+  }
 
   // Lightbox: native <dialog>, so Esc, focus trapping and focus return come for free.
   const lb = $('#lightbox');

@@ -21,14 +21,17 @@ THUMBS = (480, 960)      # srcset widths for the grids
 LARGE = 2000             # long edge for the lightbox
 QUALITY = {480: 76, 960: 74, LARGE: 80}
 
-# `sizes` attribute per collection, matching the grid columns in style.css.
-# Works pieces share one height (clamp(200px, 25vw, 320px)), so their width depends
-# on their proportions and each gets its own value.
+WIDE = 1.7               # works this wide (16:9) get a full-width row of their own
+
+# `sizes` attribute per collection, matching the layout in style.css / app.js.
+# Works rows are justified around a target height of clamp(180px, 30% of the row
+# width, 440px), so each piece's width follows its proportions; wide ones span the row.
 SIZES = {
-    "works": lambda w, h: (f"(min-width: 1280px) {round(320 * w / h)}px, "
-                           f"(min-width: 800px) {round(25 * w / h, 1)}vw, {round(200 * w / h)}px"),
-    "face-value": "(min-width: 1100px) 230px, (min-width: 600px) 22vw, 46vw",
-    "curtains": "(min-width: 1100px) 190px, (min-width: 600px) 22vw, 46vw",
+    "works": lambda w, h: ("(min-width: 1700px) 1504px, 92vw" if w / h >= WIDE else
+                           f"(min-width: 1600px) {round(470 * w / h)}px, "
+                           f"(min-width: 700px) {round(30 * w / h, 1)}vw, {round(190 * w / h)}px"),
+    "face-value": "(min-width: 1100px) 250px, (min-width: 600px) 22vw, 46vw",
+    "curtains": "(min-width: 1100px) 210px, (min-width: 600px) 22vw, 46vw",
 }
 SINGLES = {}  # "collection/file" -> <a><img></a>, for <!-- img:... --> markers
 
@@ -93,12 +96,15 @@ def build_collection(col, items):
                     f' sizes="{sizes}" width="{w}" height="{h}" alt="{html.escape(alt)}"'
                     f' loading="lazy" decoding="async"></a>')
         sizes = SIZES[col](w, h) if callable(SIZES[col]) else SIZES[col]
-        ratio = f' style="--r:{w / h:.4f}"' if col == "works" else ""
-        rows.append(f'<li{ratio}><figure>{link(sizes)}<figcaption>{caption}</figcaption></figure></li>')
-        # Standalone use elsewhere on the page, e.g. the auction lots: shown ~650px wide,
+        attrs = ""
+        if col == "works":  # proportions for the justified rows; wide pieces get their own
+            attrs = (' class="wide"' if w / h >= WIDE else "") + f' style="--r:{w / h:.4f}"'
+        rows.append(f'<li{attrs}><figure>{link(sizes, large=col == "works")}'
+                    f'<figcaption>{caption}</figcaption></figure></li>')
+        # Standalone use elsewhere on the page, e.g. the auction lots: shown up to ~830px wide,
         # so they also offer the 2000px file for Retina screens.
         SINGLES[f"{col}/{item['file']}"] = link(
-            "(min-width: 1280px) 650px, (min-width: 760px) 52vw, 92vw", ' class="art"', large=True)
+            "(min-width: 1600px) 830px, (min-width: 760px) 52vw, 92vw", ' class="art"', large=True)
 
     for f in os.listdir(out_dir):
         if f not in keep:

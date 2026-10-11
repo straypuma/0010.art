@@ -63,12 +63,12 @@ body:has(#works:target) .bar a[href="#works"]::after,
 body:has(#curtains:target) .bar a[href="#curtains"]::after,
 body:has(#facevalue:target) .bar a[href="#facevalue"]::after { scale: 1 1; }
 
-.foot { max-width: 1280px; margin: 0 auto; padding: 28px var(--gutter) 40px; justify-content: space-between; font: 400 12px/1 var(--mono); color: var(--ink-2); }
+.foot { max-width: 1600px; margin: 0 auto; padding: 28px var(--gutter) 40px; justify-content: space-between; font: 400 12px/1 var(--mono); color: var(--ink-2); }
 .foot a { text-decoration: none; }
 .foot a:hover { color: var(--ink); }
 
 /* ---- Inner views ---- */
-.view { max-width: 1280px; margin: 0 auto; padding: clamp(44px, 8vw, 104px) var(--gutter) clamp(56px, 8vw, 96px); }
+.view { max-width: 1600px; margin: 0 auto; padding: clamp(44px, 8vw, 104px) var(--gutter) clamp(56px, 8vw, 96px); }
 .head { max-width: 780px; margin-bottom: clamp(44px, 7vw, 88px); }
 .eyebrow { margin: 0 0 18px; font: 400 11.5px/1.4 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); }
 h2 { margin: 0 0 28px; font: 400 clamp(48px, 9vw, 112px)/.95 var(--serif); letter-spacing: -.025em; }
@@ -90,15 +90,19 @@ h2 { margin: 0 0 28px; font: 400 clamp(48px, 9vw, 112px)/.95 var(--serif); lette
 .grid .t { font-style: italic; }
 .grid .y { display: block; margin-top: 2px; font: 400 11px/1.4 var(--mono); letter-spacing: .05em; color: var(--ink-2); }
 
-/* Works: mixed proportions, so every piece gets the same height and its own width. */
+/* Works: mixed proportions. app.js justifies the rows (each row spans the full width at
+   one shared height) by setting every piece's width; without it, pieces fall back to one
+   fixed height. --r = width/height, set per piece. 16:9 pieces (.wide) take a whole row. */
 #works .grid { --h: clamp(200px, 25vw, 320px); display: flex; flex-wrap: wrap; justify-content: center; gap: 36px 20px; }
-#works .grid li { flex: none; width: min(calc(var(--h) * var(--r)), 100%); } /* --r = width/height, set per piece */
+#works .grid.justified { justify-content: flex-start; }
+#works .grid li { flex: none; width: min(calc(var(--h) * var(--r)), 100%); }
+#works .grid li.wide { width: 100%; }
 #works .grid img { width: 100%; height: auto; }
 #works .grid figcaption { width: 0; min-width: 100%; } /* long titles wrap instead of widening the piece */
 
 /* Curtains and Face Value: one shape per collection, so a plain grid. */
 #curtains .grid, #facevalue .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--min), 1fr)); gap: 28px 16px; }
-#curtains .grid { --min: 160px; }
+#curtains .grid { --min: 180px; }
 #facevalue .grid { --min: 220px; }
 #curtains .grid img, #facevalue .grid img { width: 100%; height: auto; }
 #curtains .grid figcaption { margin-top: 10px; font: 400 11px/1.4 var(--mono); letter-spacing: .05em; color: var(--ink-2); }
