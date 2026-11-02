@@ -49,7 +49,7 @@ main > #home:target, main:not(:has(> section:target)) > #home { display: grid; }
 .bar { position: sticky; top: 0; z-index: 10; align-items: center; justify-content: space-between; gap: 16px; padding: 14px var(--gutter); background: var(--paper) var(--grain); box-shadow: 0 1px 0 var(--rule); }
 .brand { display: flex; }
 .brand svg { width: 26px; height: 26px; }
-.bar nav { display: flex; gap: clamp(12px, 2.6vw, 30px); font: 400 12.5px/1 var(--mono); }
+.bar nav { display: flex; gap: clamp(9px, 2.6vw, 30px); font: 400 clamp(11px, 3.1vw, 12.5px)/1 var(--mono); }   /* a little tighter on small phones, so the five fit on one line */
 .bar nav a { position: relative; padding: 6px 0; text-decoration: none; color: var(--ink-2); }
 .bar nav a::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: currentColor; scale: 0 1; }
 .bar nav a:hover { color: var(--ink); }
@@ -57,11 +57,13 @@ main > #home:target, main:not(:has(> section:target)) > #home { display: grid; }
 body:has(#buy:target) .bar a[href="#buy"],
 body:has(#works:target) .bar a[href="#works"],
 body:has(#curtains:target) .bar a[href="#curtains"],
-body:has(#facevalue:target) .bar a[href="#facevalue"] { color: var(--ink); }
+body:has(#facevalue:target) .bar a[href="#facevalue"],
+.bar a[aria-current="page"] { color: var(--ink); }
 body:has(#buy:target) .bar a[href="#buy"]::after,
 body:has(#works:target) .bar a[href="#works"]::after,
 body:has(#curtains:target) .bar a[href="#curtains"]::after,
-body:has(#facevalue:target) .bar a[href="#facevalue"]::after { scale: 1 1; }
+body:has(#facevalue:target) .bar a[href="#facevalue"]::after,
+.bar a[aria-current="page"]::after { scale: 1 1; }
 
 .foot { max-width: 1600px; margin: 0 auto; padding: 28px var(--gutter) 40px; justify-content: space-between; font: 400 12px/1 var(--mono); color: var(--ink-2); }
 .foot a { text-decoration: none; }
