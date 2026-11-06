@@ -41,12 +41,17 @@ button.btn { border: 0; cursor: pointer; }
   .vigil-text { display: contents; }                   /* stacked: the intro, then the piece, then the notes */
   .vigil-intro { order: -1; }
   .vigil-notes { order: 1; min-width: 0; }
-  .vigil .piece { position: relative; top: auto; justify-self: center; width: calc(100% + 56px); height: min(76svh, 900px); }
+  .vigil .piece { position: relative; top: auto; justify-self: center; width: calc(100% + 56px); height: min(76vh, 900px); height: min(76lvh, 900px); }
 }
 /* full screen: the real thing where the browser allows it, otherwise (iPhone) a fixed overlay */
 .vigil .piece:fullscreen, .vigil .piece.full { position: fixed; inset: 0 !important; z-index: 50; width: auto !important; height: auto !important; margin: 0; justify-self: stretch; align-self: stretch; background: #0b0b0d; }   /* stretch: centring would shrink a fixed box to nothing */
 .vigil .piece:fullscreen iframe, .vigil .piece.full iframe { left: 0 !important; top: 0 !important; width: 100% !important; height: 100% !important; }
-html:has(.piece.full) { overflow: hidden; }
+html:has(.piece.full) { overflow: hidden; overscroll-behavior: none; }   /* (no rubber band behind the overlay, now that swipes on the piece pan) */
+/* The viewport's height for the script, steady while a phone's browser bars slide away and back (innerHeight follows them,
+   so the piece grew and shrank as the page scrolled): stacked, the largest (bars away), so the piece is always at its
+   biggest and the page scrolls to the rest; beside the text, the smallest, so the sticky piece always fits on screen. */
+.vh-probe { position: fixed; left: 0; top: 0; width: 0; height: 100vh; height: 100svh; visibility: hidden; pointer-events: none; }
+@media (max-width: 900px) { .vh-probe { height: 100vh; height: 100lvh; } }
 .piece .close { display: none; position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 14px; z-index: 2; width: 40px; height: 40px; padding: 0; border: 1px solid rgb(236 230 221 / .25); border-radius: 50%; background: rgb(11 11 13 / .55); color: #ece6dd; font: 400 20px/1 var(--mono); cursor: pointer; }
 .piece:fullscreen .close, .piece.full .close { display: grid; place-items: center; }
 /* a family as a row: the open piece in the middle, its siblings on either side as they hang, faded, all drawn live by one
@@ -147,6 +152,8 @@ html:has(.piece.full) { overflow: hidden; }
     $('#app').innerHTML = data.html;
     document.title = 'vigil — 0010';
     const piece = $('.vigil .piece'), text = $('.vigil-text'), PAD = 28, stacked = matchMedia('(max-width: 900px)');
+    const probe = document.createElement('div'); probe.className = 'vh-probe'; probe.setAttribute('aria-hidden', 'true'); document.body.append(probe);
+    const vh = () => probe.getBoundingClientRect().height || innerHeight;   // (see .vh-probe)
     let shape = null, waiting = [];
     // What the frame shows: its seed and traits (as the piece reports them), a pinned hour (null: the viewer's clock), and the
     // place in the notes' example family, if any ({ id, n, i, shift, keep }, shift moving the messenger's clock). pick: the trait
@@ -162,7 +169,9 @@ html:has(.piece.full) { overflow: hidden; }
     const frame = document.createElement('iframe');
     frame.title = 'vigil, a live generative piece';
     piece.append(frame);
-    const withParams = q => data.piece.replace('<head>', `<head><script>window.__vigilParams = "${q}";<\/script>`);
+    // (the piece's stage takes no pans, touch-action: none, so a swipe that began on it never scrolled the page; here it
+    // lets them through to the page: a tap still drops a stone, a swipe scrolls and cancels it, and no double-tap zoom)
+    const withParams = q => data.piece.replace('<head>', `<head><script>window.__vigilParams = "${q}";<\/script><style>html #stage { touch-action: manipulation; }</style>`);
     const boot = q => {                                // the lone piece (a family's strip stays on screen until it is ready)
       shape = null; st.booting = true; searchId++; frame.style.visibility = 'hidden';   // shown once it has reported its shape, so it never jumps
       frame.srcdoc = withParams(q);
@@ -608,15 +617,15 @@ html:has(.piece.full) { overflow: hidden; }
     };
     const fit = () => {
       let SW, SH;                                      // the slot, the piece's margin included
-      const box = piece.parentElement.clientWidth;
+      const box = piece.parentElement.clientWidth, VH = vh();
       if (stacked.matches) {                           // stacked under the text: the slot follows the piece
-        SW = box + 2 * PAD; SH = Math.min(innerHeight * 0.76, 900);
+        SW = box + 2 * PAD; SH = Math.min(VH * 0.76, 900);
         if (shape) SH = Math.min(SH, (SW - 2 * PAD) * shape + 2 * PAD);
         piece.style.top = '';
       } else {                                         // beside the text: one fixed slot for every shape
-        SH = Math.min(innerHeight * 0.8, 1100); SW = Math.min(SH, box * 0.62 + 2 * PAD);
+        SH = Math.min(VH * 0.8, 1100); SW = Math.min(SH, box * 0.62 + 2 * PAD);
         const bar = $('.bar').offsetHeight;            // kept centred in the space under the site's bar while the notes scroll
-        piece.style.top = `${Math.floor(Math.max(bar + 12, (innerHeight + bar - SH) / 2))}px`;
+        piece.style.top = `${Math.floor(Math.max(bar + 12, (VH + bar - SH) / 2))}px`;
       }
       piece.style.width = `${Math.floor(SW)}px`; piece.style.height = `${Math.floor(SH)}px`;
       if (isFull()) { SW = piece.clientWidth; SH = piece.clientHeight; }   // (full screen: the screen is the slot)
@@ -721,7 +730,7 @@ html:has(.piece.full) { overflow: hidden; }
       // Its top goes where a piece of the full height would sit centred, whatever its format (a new piece reports that only
       // once it has opened); by the window's own smooth scroll, since Chrome drops a smooth scrollIntoView once the row moves.
       if (stacked.matches) {
-        const r = piece.getBoundingClientRect(), slot = Math.min(innerHeight * 0.76, 900);
+        const r = piece.getBoundingClientRect(), slot = Math.min(vh() * 0.76, 900);
         scrollTo({ top: scrollY + r.top - Math.max($('.bar').offsetHeight, (innerHeight - slot) / 2), behavior: smooth() });
         leaveMark(b, y);
       }
