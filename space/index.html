@@ -32,6 +32,13 @@
   #bar a:focus-visible { outline: 1px solid var(--fg); outline-offset: 3px; }
   #bar nav { align-items: center; }
   #bar nav a.info, #bar nav a.info:hover { color: var(--accent); }
+  /* pages to come: no underline, and a small box under them on hover that says so */
+  #bar nav a.later { cursor: default; }
+  #bar nav a.later:hover { color: var(--dim); }
+  #bar nav a.later:hover::after { scale: 0 1; }
+  #bar nav a.later::before { content: 'soon'; position: absolute; top: calc(100% + 9px); left: 50%; translate: -50% 0; padding: 5px 9px; border-radius: 6px; white-space: nowrap;
+    background: var(--panel); border: 1px solid var(--line); color: var(--fg); font-size: 11px; text-shadow: none; opacity: 0; pointer-events: none; transition: opacity .12s; }
+  #bar nav a.later:hover::before, #bar nav a.later:focus-visible::before { opacity: 1; }
   #bar .conn { padding: 6px 12px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--line); color: var(--fg); line-height: 1; }
   #bar .conn:hover, #bar .conn[aria-expanded="true"] { box-shadow: inset 0 0 0 1px var(--fg); }
   /* under the connected address: the address in full and a way to disconnect */
@@ -125,9 +132,9 @@
   <nav aria-label="Sections">
     <a href="#" class="info" id="mintInfo">mint info</a>
     <a href="#" aria-current="page">space</a>
-    <a href="#">my systems</a>
-    <a href="#">my collection</a>
-    <a href="#">vigil</a>
+    <a href="#" class="later">my systems</a>
+    <a href="#" class="later">my collection</a>
+    <a href="https://0010.art/vigil/">vigil</a>
     <button class="conn" id="conn" type="button" aria-haspopup="true" aria-expanded="false">connect</button>
   </nav>
   <div id="connMenu" hidden><p id="connWho"></p><button class="btn" id="disconnect" type="button">disconnect</button></div>
@@ -153,10 +160,7 @@
     <button class="open" id="openPanel" type="button" hidden>Systems</button>
     <div id="status"><div id="where"></div><div id="carry"></div></div>
     <div id="tools">
-      <button type="button" id="zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
-      <button type="button" id="zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
-      <button type="button" id="toCairn" title="Travel to the cairn">cairn</button>
-      <button type="button" id="toAny" title="Travel to a system picked at random">any</button>
+      <button type="button" id="figCount" title="Open the constellation" hidden></button>
     </div>
     <div id="toast" role="status" hidden></div>
   </main>
@@ -292,16 +296,28 @@ function summary(sc) {
   const upright = cx > cy, NA = EDGE_IN, NC = 96;
   // edge[k * NA + a]: at place a along the bands, the share of the way across the piece that lies before band k. These
   // are the band edges as the piece draws them (arches, stairs, dunes and all), and a system's belts take them over.
+  // bok[k][a]: how far band k's gravel has faded from its first ink to its second at place a (bokashi; null for a band
+  // without one). The piece fades it along the band, between two places in its own along-the-band measure (L.grad).
   const edge = new Float32Array((n + 1) * NA), share = new Array(n).fill(0), count = new Array(n);
+  const ring = sc.ring && sc.ring[0] > 0.5, bok = sc.layers.slice(0, n).map(L => L.grad && L.grad[0] > -5 && L.gcol2 ? new Float32Array(NA) : null);
+  const ptOf = (a, c) => upright ? [(c + 0.5) / NC, (a + 0.5) / NA * sc.H] : [(a + 0.5) / NA, (c + 0.5) / NC * sc.H];
   for (let a = 0; a < NA; a++) {
     count.fill(0);
     for (let c = 0; c < NC; c++) count[upright ? at((c + 0.5) / NC, (a + 0.5) / NA) : at((a + 0.5) / NA, (c + 0.5) / NC)]++;
-    let cum = 0; for (let k = 0; k < n; k++) { edge[k * NA + a] = cum / NC; cum += count[k]; share[k] += count[k] / (NC * NA); }
+    let cum = 0;
+    for (let k = 0; k < n; k++) {
+      edge[k * NA + a] = cum / NC;
+      if (bok[k]) {                                  // the fade, read in the middle of the band at this place
+        const g = sc.layers[k].grad, [x, y] = ptOf(a, Math.min(NC - 1, cum + Math.floor(count[k] / 2))), b = sc.foldD(x, y)[1], v = ring ? Math.abs(b) : b;
+        const f = clamp((v - g[0]) / (g[1] - g[0]), 0, 1); bok[k][a] = f * f * (3 - 2 * f);
+      }
+      cum += count[k]; share[k] += count[k] / (NC * NA);
+    }
     edge[n * NA + a] = 1;
   }
   return { H: sc.H, traits: { ...sc.traits }, glint: [...sc.glint], share, edge, holes: sc.holes | 0,
     eclipse: sc.eclipse ? { col: [...sc.eclipse.col], corona: [...sc.eclipse.corona] } : null,
-    layers: sc.layers.slice(0, n).map(l => ({ col: [...l.col], gcol: [...l.gcol], sp: l.sp })),
+    layers: sc.layers.slice(0, n).map((l, k) => ({ col: [...l.col], gcol: [...l.gcol], gcol2: bok[k] ? [...l.gcol2] : null, bok: bok[k], sp: l.sp })),
     stones: (sc.stones || []).filter(s => !s.hidden && s.kind < 2).map(s => ({ x: s.x, y: s.y, r: s.r, giant: s.kind === 1, col: s.col ? [...s.col] : [0.8, 0.8, 0.8] })) };
 }
 
@@ -312,7 +328,9 @@ const liftTo = (c, L) => { const l = lum(c); return l >= L ? c.slice() : l < 0.0
 // A night band's stones are its gravel, in its ink. A paper band is light paper stippled with dark ink: most of its
 // stones take the paper's colour (see makeCluster), and the rest this ink, lifted, with some of the paper in it. So a
 // piece that is half night and half day keeps that contrast as a system.
-const stoneCol = l => lum(l.col) > 0.3 ? liftTo(mixc(l.col, l.gcol, 0.62), 0.4) : liftTo(l.gcol, 0.4);
+const stoneCol = (l, g = l.gcol) => lum(l.col) > 0.3 ? liftTo(mixc(l.col, g, 0.62), 0.4) : liftTo(g, 0.4);
+// a stone's shade, from its seed byte, so that the vertex shader can shade a band's second ink the same way
+const shadeOf = sd => 0.86 + 0.26 * ((Math.round(clamp(sd, 0, 1) * 255) / 255 * 7.31) % 1);
 const css = c => `rgb(${c.map(v => byte(v)).join(' ')})`;
 
 // ---- WebGL
@@ -334,7 +352,7 @@ float vn3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f);
 // and a far system is a faint disc of its own colours.
 const VS = `#version 300 es
 layout(location=0) in vec2 aC; layout(location=1) in vec4 aA; layout(location=2) in vec4 aK; layout(location=3) in vec3 aS;
-uniform highp sampler2D uSys, uEdge; uniform mat4 uProj; uniform mat3 uRot; uniform vec3 uCam; uniform vec2 uTan;
+uniform highp sampler2D uSys, uEdge; uniform lowp sampler2D uBok; uniform mat4 uProj; uniform mat3 uRot; uniform vec3 uCam; uniform vec2 uTan;
 uniform float uPass, uPx, uTime, uFloor, uOff, uFade;
 out vec2 vQ; out vec3 vCol; out float vSeed, vA, vKind;
 void cull(){ gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vA = 0.0; }
@@ -351,6 +369,10 @@ void main(){
     float lo = mix(texelFetch(uEdge, ivec2(a0, row), 0).r, texelFetch(uEdge, ivec2(a1, row), 0).r, k);
     float hi = mix(texelFetch(uEdge, ivec2(a0, row + 1), 0).r, texelFetch(uEdge, ivec2(a1, row + 1), 0).r, k);
     rr = mix(lo, hi, aA.x - j);
+    if (vKind < 0.1) {                                // bokashi: rgb the band's second ink, a how far it has faded to it here
+      vec4 bk = mix(texelFetch(uBok, ivec2(a0, row), 0), texelFetch(uBok, ivec2(a1, row), 0), k);
+      vCol = mix(vCol, bk.rgb*(0.86 + 0.26*fract(vSeed*7.31))*uFade, bk.a);
+    }
   }
   float y = aA.z + u.w*rr*sin(v.w*th + n.w), tilt = g.x*rr/c.w, lz = rr*sin(th);
   vec3 w = c.xyz + u.xyz*(rr*cos(th)) + v.xyz*(lz*cos(tilt) - y*sin(tilt)) + n.xyz*(lz*sin(tilt) + y*cos(tilt));
@@ -625,7 +647,7 @@ function makeCluster(codes, scenes, num, phase, layout) {
   const cap = N_SYS * (PER_SYS + 12) + 8, A = new Float32Array(cap * 4), K = new Uint8Array(cap * 4), S = new Float32Array(cap * 3), SYS = new Float32Array((N_SYS + 1) * 24);
   const PA = new Float32Array(N_SYS * 40), PS = new Float32Array(N_SYS * 30); let np = 0;      // the spheres' own rows, kept for posOf after the rest has gone to the GPU
   const kept = () => { PA.set(A.subarray(n * 4 - 4, n * 4), np * 4); PS.set(S.subarray(n * 3 - 3, n * 3), np * 3); return np++; };
-  const E = new Float32Array((N_SYS + 1) * EDGE_ROWS * EDGE_N);
+  const E = new Float32Array((N_SYS + 1) * EDGE_ROWS * EDGE_N), BK = new Uint8Array((N_SYS + 1) * EDGE_ROWS * EDGE_N * 4);
   let n = 0;
   const put = (s, x, th, y, size, col, om, kind, seed) => {
     let o = n * 4; A[o] = x; A[o + 1] = th; A[o + 2] = y; A[o + 3] = size; K[o] = byte(col[0]); K[o + 1] = byte(col[1]); K[o + 2] = byte(col[2]); K[o + 3] = byte(seed);
@@ -651,6 +673,11 @@ function makeCluster(codes, scenes, num, phase, layout) {
       E[(i * EDGE_ROWS + k) * EDGE_N + a] = folds === 'Rings' ? (r0 + span * cum[k]) * (1 + off * Math.cos(a / EDGE_N * 6.283 - offAt - k * 0.5))
         : r0 + span * (along(k, x - 0.012) + 2 * along(k, x) + along(k, x + 0.012)) / 4;
     }
+    sc.layers.forEach((l, k) => {                    // bokashi: the band's second ink, and how far it has faded to it at each angle
+      if (!l.bok) return;
+      const c2 = stoneCol(l, l.gcol2), fa = x => { const f = clamp(x, 0, 1) * (EDGE_IN - 1), a0 = Math.floor(f), a1 = Math.min(EDGE_IN - 1, a0 + 1); return l.bok[a0] * (1 - (f - a0)) + l.bok[a1] * (f - a0); };
+      for (let a = 0; a < EDGE_N; a++) { const turn = a / EDGE_N * 2, o = ((i * EDGE_ROWS + k) * EDGE_N + a) * 4; BK.set([byte(c2[0]), byte(c2[1]), byte(c2[2]), byte(fa(turn < 1 ? turn : 2 - turn))], o); }
+    });
     const bend = { Still: 0.012, Sway: 0.05, Folded: 0.1 }[tr.Bend] ?? 0.03;
     const warp = [bend * (folds === 'Curtain' || folds === 'Aurora' ? 1 : 0.6), tr.Bend === 'Folded' ? 3 : 2];
     const swirl = tr.Whorl === 'Whorl' ? dir * 0.5 : 0, twist = tr.Composition === 'Fan' ? side * (0.3 + 0.3 * ra) : 0, terrace = tr.Composition === 'Cascade' ? side * span * 0.045 : 0;
@@ -658,7 +685,7 @@ function makeCluster(codes, scenes, num, phase, layout) {
     const kep = r => dir * 0.05 * Math.pow(r / 1.5, -1.5);       // nearer the centre, faster round it
     // how much gravel each band gets: its share of the picture, more where the piece prints it finer
     const spMin = Math.min(...sc.layers.map(l => l.sp)), dens = sc.layers.map(l => (spMin / l.sp) ** 2);
-    const gs = { Fine: 0.8, Coarse: 1.3 }[tr.Gravel] || 1, cols = sc.layers.map(stoneCol);
+    const gs = { Fine: 0.8, Coarse: 1.3 }[tr.Gravel] || 1, cols = sc.layers.map(l => stoneCol(l));
     const paper = sc.layers.map(l => lum(l.col) > 0.3), light = sc.layers.map(l => { const k = Math.min(1, 0.76 / Math.max(lum(l.col), 0.01)); return l.col.map(v => v * k); });
     const wt = sc.share.map((x, j) => (x * Math.pow(dens[j], 0.7) + 0.03) * (paper[j] ? 1.8 : 1)), wSum = wt.reduce((a, b) => a + b, 0);
     const pad = folds === 'Strata' ? 0.14 : folds === 'Aurora' ? 0.02 : 0.05;
@@ -677,10 +704,10 @@ function makeCluster(codes, scenes, num, phase, layout) {
       let q = pad + R() * (1 - 2 * pad);
       if (folds === 'Rings') q = clamp((Math.floor(R() * 3) + 0.5) / 3 + gauss(R) * 0.03, 0.01, 0.99);          // three thin ringlets
       if (folds === 'Curtain') q = 0.5 + (q - 0.5) * 0.3;                                                       // a thin wall
-      const x = j + q, r = rOf(x), size = Math.max(0.008, sc.layers[j].sp * 4.2 * gs * (0.4 + 1.5 * R() ** 4)), sh = 0.86 + 0.26 * R(), c = paper[j] && R() < 0.74 ? light[j] : cols[j];
+      const x = j + q, r = rOf(x), size = Math.max(0.008, sc.layers[j].sp * 4.2 * gs * (0.4 + 1.5 * R() ** 4)), sd = R(), sh = shadeOf(sd), lit = paper[j] && R() < 0.74, c = lit ? light[j] : cols[j];
       if (size > maxSize) maxSize = size;
       mean[0] += c[0]; mean[1] += c[1]; mean[2] += c[2];
-      put(i, x, R() * 6.283, stepOf(j) + (folds === 'Curtain' ? (R() - 0.5) * belts[j].wall : gauss(R) * (folds === 'Aurora' ? 0.03 : 0.012) * r), size, [c[0] * sh, c[1] * sh, c[2] * sh], kep(r), 0, R());
+      put(i, x, R() * 6.283, stepOf(j) + (folds === 'Curtain' ? (R() - 0.5) * belts[j].wall : gauss(R) * (folds === 'Aurora' ? 0.03 : 0.012) * r), size, [c[0] * sh, c[1] * sh, c[2] * sh], kep(r), lit ? 0.25 : 0, sd);
     }
     return { i, code, sc, at: at[i], nrm, Rs, first, special, count: PER_SYS, planets, belts, cols, mean: mean.map(c => c / PER_SYS), rho: rhoOf[i], centre, bodyR, maxSize, seed: R() * 6.283,
       // a black hole's disc: pale near the hole, and toward its rim the strongest of the piece's own inks, warmed
@@ -722,11 +749,11 @@ function makeCluster(codes, scenes, num, phase, layout) {
   const fieldVao = gl.createVertexArray(); gl.bindVertexArray(fieldVao); vaos.push(fieldVao);
   attrib(bufs[3], 0, 4, gl.FLOAT, false, 0, 0, false); attrib(bufs[4], 1, 4, gl.UNSIGNED_BYTE, true, 0, 0, false);
   gl.bindVertexArray(null);
-  const table = (fmt, w, h, kind, data) => { const tx = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tx); gl.texImage2D(gl.TEXTURE_2D, 0, fmt, w, h, 0, kind, gl.FLOAT, data);
+  const table = (fmt, w, h, kind, data, type = gl.FLOAT) => { const tx = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tx); gl.texImage2D(gl.TEXTURE_2D, 0, fmt, w, h, 0, kind, type, data);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); return tx; };
-  return { n: num, home, phase, sys, SYS, E, PA, PS, bufs, vaos, fieldVao, sysTex: table(gl.RGBA32F, 6, N_SYS + 1, gl.RGBA, SYS), edgeTex: table(gl.R32F, EDGE_N, (N_SYS + 1) * EDGE_ROWS, gl.RED, E), cairn };
+  return { n: num, home, phase, sys, SYS, E, PA, PS, bufs, vaos, fieldVao, sysTex: table(gl.RGBA32F, 6, N_SYS + 1, gl.RGBA, SYS), edgeTex: table(gl.R32F, EDGE_N, (N_SYS + 1) * EDGE_ROWS, gl.RED, E), bokTex: table(gl.RGBA8, EDGE_N, (N_SYS + 1) * EDGE_ROWS, gl.RGBA, BK, gl.UNSIGNED_BYTE), cairn };
 }
-function dispose(cl) { for (const b of cl.bufs) gl.deleteBuffer(b); for (const v of cl.vaos) gl.deleteVertexArray(v); gl.deleteTexture(cl.sysTex); gl.deleteTexture(cl.edgeTex); }
+function dispose(cl) { for (const b of cl.bufs) gl.deleteBuffer(b); for (const v of cl.vaos) gl.deleteVertexArray(v); gl.deleteTexture(cl.sysTex); gl.deleteTexture(cl.edgeTex); gl.deleteTexture(cl.bokTex); }
 // where sphere idx of a cluster is now (the same sum the vertex shader does)
 function posOf(cl, idx) {
   const { PA: A, PS: S, SYS, E } = cl, si = S[idx * 3], o = si * 24, x = A[idx * 4], th = A[idx * 4 + 1] + S[idx * 3 + 1] * t;
@@ -812,6 +839,12 @@ async function disconnect() {
 async function loadCounts(fresh) {
   if (!API || (!fresh && Date.now() - countsAt < 60e3)) return;
   const all = await ask('/clusters'); if (all.ok) { counts = all.body.counts || {}; countsAt = Date.now(); }
+  renderCount();
+}
+// how many constellations have been drawn on the whole map, in the corner (a click opens the constellation's card)
+function renderCount() {
+  const n = Object.values(counts).reduce((a, b) => a + b, 0), e = $('figCount');
+  e.hidden = !countsAt; e.textContent = `${n.toLocaleString('en-US')} ${n === 1 ? 'constellation' : 'constellations'} drawn`;
 }
 // on arriving in a cluster: the constellations other people left there, and how full every cluster is
 async function arrive() {
@@ -1213,10 +1246,7 @@ addEventListener('keydown', e => {
 });
 $('navMap').onclick = () => ready && toMap();
 $('navFar').onclick = () => ready && toFar();
-$('zoomOut').onclick = () => zoomTo(wantDist() * 1.7);
-$('zoomIn').onclick = () => zoomTo(wantDist() / 1.7);
-$('toCairn').onclick = () => ready && openCairn();
-$('toAny').onclick = () => ready && openSys(Math.floor(Math.random() * N_SYS), true);
+$('figCount').onclick = () => ready && openFig();
 $('hidePanel').onclick = () => openPanel(false); $('openPanel').onclick = () => openPanel(true);
 for (const b of document.querySelectorAll('[data-hide]')) b.onclick = () => openPanel(false);
 for (const b of document.querySelectorAll('[data-back]')) b.onclick = () => showView('list');
@@ -1295,7 +1325,8 @@ function draw() {
   };
   // the stones, spheres and dark bodies big enough to make out
   gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.disable(gl.BLEND);
-  gl.useProgram(P_STONE.p); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, C.edgeTex); gl.uniform1i(P_STONE.u.uEdge, 1);
+  gl.useProgram(P_STONE.p); gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, C.bokTex); gl.uniform1i(P_STONE.u.uBok, 2);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, C.edgeTex); gl.uniform1i(P_STONE.u.uEdge, 1);
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, C.sysTex); gl.uniform1i(P_STONE.u.uSys, 0);
   gl.uniformMatrix4fv(P_STONE.u.uProj, false, proj); gl.uniformMatrix3fv(P_STONE.u.uRot, false, view.rot); gl.uniform3fv(P_STONE.u.uCam, o);
   gl.uniform2f(P_STONE.u.uTan, tx, ty); gl.uniform1f(P_STONE.u.uPx, px); gl.uniform1f(P_STONE.u.uTime, t);
@@ -1379,7 +1410,7 @@ $('conn').onclick = onConn;
 $('disconnect').onclick = disconnect;
 addEventListener('click', e => { if (!$('connMenu').hidden && !$('connMenu').contains(e.target)) connMenu(false); });
 $('mintInfo').onclick = e => { e.preventDefault(); showView('mint'); openPanel(true); };      // the dates and the prices, in the panel
-if (self !== top) { const a = document.querySelector('#bar .brand'); a.target = '_blank'; a.rel = 'noopener'; }
+if (self !== top) for (const a of document.querySelectorAll('#bar a[href^="http"]')) { a.target = '_blank'; a.rel = 'noopener'; }
 if (!gl) $('where').textContent = 'This page needs WebGL2.';
 else if (location.protocol === 'file:' && !PIECE_HTML) pieceFromDisk().then(html => {
   if (html) { PIECE_HTML = html; begin(); }
