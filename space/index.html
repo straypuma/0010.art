@@ -120,6 +120,12 @@
   .sw { flex: none; width: 38px; height: 38px; border-radius: 4px; background: #000; }
   #rows span { display: block; min-width: 0; }
   #rows small { display: block; color: var(--dim); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* the other clusters in sight, nearest first, each with how full it is */
+  #farRows { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  #farRows button { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+  #farRows button:hover, #farRows button:focus-visible { background: var(--btn); }
+  #farRows small { color: var(--dim); font-size: 11px; white-space: nowrap; }
+  #farRows small.full { color: var(--accent); }
   #pieceBox { margin: 12px 0; background: #000; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
   /* The piece's own page asks for a light colour scheme. Unless its frame says the same, the browser paints the frame's
      backdrop white, which showed as a white line wherever the piece left a pixel of the frame uncovered. */
@@ -231,6 +237,12 @@
       <div id="pieceBox"></div>
       <dl id="traits"></dl>
     </section>
+    <section id="v-far" hidden>
+      <div class="head"><button class="link" type="button" data-back>← all systems</button><button class="link" type="button" data-hide>hide</button></div>
+      <h2>Other clusters</h2>
+      <div class="dim" id="farWhere"></div>
+      <div id="farRows"></div>
+    </section>
     <section id="v-cairn" hidden>
       <div class="head"><button class="link" type="button" data-back>← all systems</button><button class="link" type="button" data-hide>hide</button></div>
       <h2>The cairn</h2>
@@ -290,7 +302,7 @@ const N_SYS = 36;                          // systems in a cluster
 const PER_SYS = TOUCH ? 4500 : 36000;      // belt stones in one system
 const FIELD = TOUCH ? 8000 : 14000;        // far stars inside a cluster
 const SKY = 4000;                          // stars beyond the clusters
-const N_FAR = 7;                           // other clusters in sight
+const N_FAR = 10, N_FAR_FULL = 3;          // other clusters in sight: the three nearest full ones and the nearest with room
 const N_CLUSTERS = 300;                    // clusters on the map; each has a number, and 0 is the cairn's (300 × 8 places: 2,400 constellations)
 const EDGE_IN = 64, EDGE_N = 128, EDGE_ROWS = 12;   // band edges: places sampled along a piece, angles round a system, edges kept for a system
 const FOV = 62 * Math.PI / 180;
@@ -831,14 +843,27 @@ function farOf(from, to) {
   const a = clusterAt(from), p = clusterAt(to).map((v, i) => v - a[i]), d = Math.hypot(...p), k = clamp(d, 8500, 12500) / d;
   return { n: to, pos: p.map(v => v * k), phase: clusterPhase(to), home: to === 0 };
 }
-// The other clusters in sight from cluster n: the seven nearest, the cairn's wherever it is, and the one you came from.
+// The other clusters in sight from cluster n: ten in all, the three nearest that are full and the nearest that have room
+// (more full ones only when fewer have room), so that from any cluster the open ones are one trip away; and also the
+// cairn's wherever it is, and the one you came from (cameFrom). Before the counts have come, all ten are the nearest.
+let cameFrom = null;
 function makeFars(n, from) {
   const here = clusterAt(n), all = [];
   for (let m = 0; m < N_CLUSTERS; m++) if (m !== n) all.push({ m, d: Math.hypot(...clusterAt(m).map((v, i) => v - here[i])) });
-  const out = all.sort((a, b) => a.d - b.d).slice(0, N_FAR).map(q => farOf(n, q.m));
+  all.sort((a, b) => a.d - b.d);
+  const open = all.filter(q => (counts[q.m] || 0) < FIG_CAP), shut = all.filter(q => (counts[q.m] || 0) >= FIG_CAP);
+  const nShut = Math.min(shut.length, Math.max(N_FAR_FULL, N_FAR - open.length));
+  const out = [...shut.slice(0, nShut), ...open.slice(0, N_FAR - nShut)].sort((a, b) => a.d - b.d).map(q => farOf(n, q.m));
   if (n !== 0 && !out.some(f => f.home)) out.push(farOf(n, 0));
   if (from) { const j = out.findIndex(f => f.n === from.n); if (j >= 0) out[j] = from; else out.push(from); }
   return out;
+}
+// choose them again when the counts change which clusters have room (not while travelling)
+function refreshFars() {
+  if (jumping || !C) return;
+  const next = makeFars(C.n, cameFrom);
+  if (next.map(f => f.n).join() === fars.map(f => f.n).join()) return;
+  fars = next; if (hover && hover.k === 'far') hover = null; makeLabels(); wake();
 }
 
 // ---- constellations. Yours: the cluster it is in, the systems linked so far (by seed), its name and the address, kept
@@ -906,7 +931,7 @@ async function arrive() {
   if (!API) return;
   const n = C.n, [here] = await Promise.all([ask('/clusters/' + n), loadCounts()]);
   if (here.ok && C.n === n) { shared.set(n, (here.body.figs || []).filter(f => !(fig.cluster === n && fig.addr && f.by === shortAddr(fig.addr)))); seen = { c: n, v: here.body.v || 0 }; }
-  makeLabels(); renderFig(); wake(); watch();
+  refreshFars(); makeLabels(); renderFig(); wake(); watch();
 }
 // While the tab is in sight, the page asks the server every 20 seconds whether anything has changed (two rows read). When
 // the cluster you are in has, it loads its constellations again; the count in the corner follows the whole map; the
@@ -922,7 +947,7 @@ function watch() {
     if (r.ok) {
       total = r.body.total; counts[n] = r.body.n; renderCount();
       if (seen && seen.c === n && r.body.cv !== seen.v && !jumping) { await arrive(); return; }   // (arrive watches again)
-      if (cam.dist > 1200) { await loadCounts(); makeLabels(); }
+      if (cam.dist > 1200) { await loadCounts(); refreshFars(); makeLabels(); }
     }
     watch();
   }, WATCH_MS);
@@ -1074,7 +1099,7 @@ function jumpStep(e) {
     const old = C, P = J.P;
     travel.from = travel.from.map((v, i) => v - P[i]); follow = { k: 'cairn' };
     if (!old.home) dispose(old);
-    C = J.next; fars = makeFars(C.n, { n: old.n, pos: P.map(v => -v), phase: old.phase, home: old.home }); sel = -1; arrive();
+    C = J.next; cameFrom = { n: old.n, pos: P.map(v => -v), phase: old.phase, home: old.home }; fars = makeFars(C.n, cameFrom); sel = -1; arrive();
     if (drawing) { drawing = false; fig.codes = []; save(); }           // a figure belongs to one cluster: leaving it stops the drawing
     makeLabels(); renderList(); renderFig();
   }
@@ -1129,7 +1154,7 @@ function clickAt(cx, cy) {
 
 // ---- the panels
 let pieceFor = null;
-function showView(name) { for (const v of ['list', 'sys', 'cairn', 'mint']) $('v-' + v).hidden = v !== name; if (name !== 'sys') sel = -1; syncPiece(); }
+function showView(name) { for (const v of ['list', 'sys', 'cairn', 'mint', 'far']) $('v-' + v).hidden = v !== name; if (name !== 'sys') sel = -1; syncPiece(); }
 function openPanel(yes) { if (yes && PHONE.matches && !$('figCard').hidden) { $('figCard').hidden = true; renderFig(); } $('panel').hidden = !yes; $('openPanel').hidden = yes; syncSheets(); syncPiece(); wake(); }
 // The panel floats over the map's right side, so while it shows, the middle of the view (where what you travel to comes
 // to rest) is the middle of the map that is left: offX shifts the whole picture left by half the panel's width, in the
@@ -1165,7 +1190,21 @@ function openSys(i, fly) {
 }
 function openCairn() { if (jumping || drawing) return; atHome(() => { showView('cairn'); openPanel(true); go({ k: 'cairn' }, 7); }); }
 function toMap() { if (jumping) return; showView('list'); go({ k: 'cairn' }, MAP); }
-function toFar() { if (jumping) return; showView('list'); go({ k: 'cairn' }, FAR_VIEW); }
+function toFar() { if (jumping) return; showView('far'); renderFar(); openPanel(true); go({ k: 'cairn' }, FAR_VIEW); }
+// The panel's list of the other clusters in sight, with how many constellations each holds: those with room first, then
+// the full ones, each nearest first. A click on one travels to it; pointing at one marks it on the map.
+function renderFar() {
+  const here = clusterAt(C.n), d = n => Math.hypot(...clusterAt(n).map((v, i) => v - here[i]));
+  const open = countsAt ? N_CLUSTERS - Object.values(counts).filter(n => n >= FIG_CAP).length : 0;
+  $('farWhere').textContent = `In sight from ${clusterName(C.n)}.` + (countsAt ? ` ${open} of the ${N_CLUSTERS} clusters have room.` : '');
+  const full = n => (counts[n] || 0) >= FIG_CAP;
+  $('farRows').replaceChildren(...fars.map((f, j) => ({ f, j, d: d(f.n) })).sort((a, b) => full(a.f.n) - full(b.f.n) || a.d - b.d).map(({ f, j }) => {
+    const n = counts[f.n] || 0, mark = h => () => { hover = h; labelKey = ''; wake(); };
+    const row = el('button', { type: 'button', onclick: () => travelTo(f.n), onpointerenter: mark({ k: 'far', j }), onpointerleave: mark(null) },
+      el('span', {}, clusterName(f.n)), el('small', { className: n >= FIG_CAP ? 'full' : '' }, n >= FIG_CAP ? 'full' : `${n} of ${FIG_CAP}`));
+    return row;
+  }));
+}
 function homeView() { if (jumping) return; showView('list'); go({ k: 'cairn' }, HOME); }
 function el(tag, props, ...kids) { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; }
 // The constellation's panel and the menu, from where your constellation stands: not begun, being drawn, drawn and waiting
@@ -1250,6 +1289,7 @@ function makeLabels() {
   $('labels').replaceChildren(...labels.map(l => l.e));
   for (const l of labels) l.w = l.e.offsetWidth;
   labelKey = ''; labelShown = [];
+  if (!$('v-far').hidden) renderFar();
 }
 // where a point of the map is on the stage, in CSS pixels, and how far in front of you
 function toScreen(p) {
