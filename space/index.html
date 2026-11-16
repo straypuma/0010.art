@@ -112,6 +112,25 @@
   #doneBox .btn.x:hover { background: rgb(224 101 92 / .16); }
   #toast { position: absolute; left: calc(50% - var(--pw) / 2); top: 64px; transform: translateX(-50%); max-width: min(420px, 80%);
     background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; text-align: center; }
+  /* the chat: a card over the map's lower right corner, above its button, open until it is hidden; the messages scroll,
+     the newest at the bottom, and under them the field to write in (or what writing needs) */
+  #chatBtn.new::after { content: ''; display: inline-block; width: 6px; height: 6px; margin: 0 0 1px 7px; border-radius: 50%; background: var(--accent); vertical-align: middle; }
+  #chatBtn[aria-expanded="true"] { border-color: var(--fg); }
+  #chat { position: absolute; z-index: 3; right: calc(14px + var(--pw)); bottom: calc(52px + env(safe-area-inset-bottom, 0px)); width: 300px; height: min(440px, calc(100% - 130px));
+    display: flex; flex-direction: column; padding: 12px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 28px rgb(0 0 0 / .35); }
+  #chat .head { margin: 0; }
+  #chatLog { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 10px -16px 0; padding: 0 16px 4px; }
+  #chatLog .m { margin-top: 9px; }
+  #chatLog .m.more { margin-top: 2px; }
+  #chatLog .m b { font-weight: 600; }
+  #chatLog .m.me b { color: var(--accent); }
+  #chatLog .m small { color: var(--dim); font-size: 11px; margin-left: 6px; }
+  #chatLog .m p { margin: 0; overflow-wrap: anywhere; }
+  #chatFoot { margin: 6px -16px 0; padding: 10px 16px 0; border-top: 1px solid var(--line); }
+  #chatFoot p { margin: 0 0 8px; }
+  #chatFoot form { flex-direction: row; margin: 0; }
+  #chatIn { flex: 1; min-width: 0; background: var(--btn); border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; }
+  #chatFoot .err:not(:empty) { margin-top: 6px; }
   /* the right panel */
   #filter, #addr { width: 100%; background: var(--btn); border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; }
   #rows { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
@@ -163,11 +182,14 @@
     #figCard, #panel { position: fixed; z-index: 6; left: 0; right: 0; bottom: 0; top: auto; width: auto; max-height: 55%; margin: 0; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
       border: 1px solid var(--line); border-bottom: 0; border-radius: 12px 12px 0 0; box-shadow: 0 -8px 28px rgb(0 0 0 / .4); }
     #figCard { padding-top: 12px; }
+    #chat { position: fixed; z-index: 6; left: 0; right: 0; bottom: 0; width: auto; height: 55%; padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+      border-bottom: 0; border-radius: 12px 12px 0 0; box-shadow: 0 -8px 28px rgb(0 0 0 / .4); }
     #status { top: calc(50px + env(safe-area-inset-top, 0px)); bottom: auto; left: 14px; right: 14px; font-size: 11px; line-height: 1.45; }
     #tools { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
     #tools button, .open { height: 34px; padding: 0 12px; }
     #openPanel { top: auto; right: auto; left: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
     #app.sheet #tools, #app.sheet #openPanel { display: none; }
+    @media (max-width: 399px) { #tools { flex-direction: column-reverse; align-items: flex-end; } }   /* (narrow phones: the chat button above the count, clear of "Systems") */
     #toast { top: calc(96px + env(safe-area-inset-top, 0px)); }
     #doneBox { top: 30%; z-index: 7; }
     #labels div { font-size: 10px; }
@@ -215,7 +237,14 @@
     <div id="status"><div id="where"></div><div id="carry"></div></div>
     <div id="tools">
       <button type="button" id="figCount" title="Open the constellation" hidden></button>
+      <button type="button" id="chatBtn" aria-controls="chat" aria-expanded="false" hidden>chat</button>
     </div>
+    <section id="chat" aria-label="Chat" hidden>
+      <div class="head"><h2>Chat</h2><button class="link" type="button" id="chatHide">hide</button></div>
+      <div class="dim" id="chatHere"></div>
+      <div id="chatLog" role="log"></div>
+      <div id="chatFoot"></div>
+    </section>
     <div id="toast" role="status" hidden></div>
     <div id="doneBox" role="dialog" aria-labelledby="doneTitle" hidden>
       <h2 id="doneTitle">Your constellation is on the map</h2>
@@ -912,6 +941,7 @@ async function disconnect() {
   const was = wallet; wallet = ''; connMenu(false); $('conn').textContent = 'connect';
   try { await window.ethereum?.request({ method: 'wallet_revokePermissions', params: [{ eth_accounts: {} }] }); } catch {}
   if (!drawing && fig.addr && fig.addr === was) { fig = { cluster: 0, codes: [], name: '', addr: '' }; save(); }
+  keepSig(null); if (chat.authed) { chatDrop(); chatConnect(); }
   makeLabels(); renderFig(); wake();
 }
 // how full every cluster is, asked again at most once a minute (or at once, with fresh)
@@ -933,7 +963,7 @@ async function arrive() {
   if (here.ok && C.n === n) { shared.set(n, (here.body.figs || []).filter(f => !(fig.cluster === n && fig.addr && f.by === shortAddr(fig.addr)))); seen = { c: n, v: here.body.v || 0 }; }
   refreshFars(); makeLabels(); renderFig(); wake(); watch();
 }
-// While the tab is in sight, the page asks the server every 20 seconds whether anything has changed (two rows read). When
+// While the tab is in sight, the page asks the server every 20 seconds whether anything has changed (three rows read). When
 // the cluster you are in has, it loads its constellations again; the count in the corner follows the whole map; the
 // other clusters' counts are asked again (at most once a minute) only while they are in sight. Nothing runs while the
 // tab is hidden.
@@ -946,6 +976,7 @@ function watch() {
     const n = C.n, r = await ask('/version?c=' + n);
     if (r.ok) {
       total = r.body.total; counts[n] = r.body.n; renderCount();
+      if (r.body.chat > chat.last) { chat.last = r.body.chat; markChat(); }
       if (seen && seen.c === n && r.body.cv !== seen.v && !jumping) { await arrive(); return; }   // (arrive watches again)
       if (cam.dist > 1200) { await loadCounts(); refreshFars(); makeLabels(); }
     }
@@ -964,6 +995,103 @@ async function findRoom() {
   }
   if (best < 0) { toast('Every cluster is full.'); return; }
   travelTo(best, openFig);
+}
+const hexText = t => '0x' + [...new TextEncoder().encode(t)].map(b => b.toString(16).padStart(2, '0')).join('');   // (what personal_sign takes)
+// ---- the chat: one room for the whole map, kept by the server (see "the chat" in server/src/worker.js). Its connection, a
+// WebSocket, is open only while the chat's card is open and the tab is in sight. It brings the last 100 messages and then
+// each new one as it is written, and a ping every 45 seconds keeps it from being dropped as idle. While the card is closed,
+// nothing of the chat runs: the 20-second check of the map (watch) also gives the last message's number, and the chat
+// button shows a dot while that is newer than the last message seen in this browser. To write, an address on the allowlist
+// signs a short text once a day; the signature is kept in this browser for that day.
+const CHAT_KEY = 'vigil-chat', CHAT_MAX = 280;
+const chatText = (addr, time) => `Vigil chat\nSigning lets this address write in the chat on 0010.art/space for a day.\nAddress: ${addr}\nTime: ${time}`;   // (the server's text, the same)
+const chat = { ws: null, msgs: [], stick: true, authed: false, name: '', by: '', err: '', here: 0, tries: 0, retry: 0, ping: 0, last: 0, seen: 0, sig: null, sent: '', foot: '' };
+try { chat.seen = +localStorage.getItem(CHAT_KEY + '-seen') || 0; chat.sig = JSON.parse(localStorage.getItem(CHAT_KEY)); } catch {}
+const chatOpen = () => !$('chat').hidden;
+// the day's signature, if it is for the address connected (or for any address while none is)
+const chatSig = () => { const s = chat.sig; return s && Date.now() - Date.parse(s.time) < 23.5 * 3600e3 && (!wallet || wallet === s.addr) ? s : null; };
+function keepSig(s) { chat.sig = s; try { s ? localStorage.setItem(CHAT_KEY, JSON.stringify(s)) : localStorage.removeItem(CHAT_KEY); } catch {} }
+const chatWhen = t => { const d = new Date(t), hm = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }); return d.toDateString() === new Date().toDateString() ? hm : `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${hm}`; };
+function openChat() {
+  if (!API || !ready) return;
+  if (PHONE.matches) { openPanel(false); if (!$('figCard').hidden) closeFig(); }      // (one sheet at a time)
+  $('chat').hidden = false; $('chatBtn').setAttribute('aria-expanded', 'true'); syncSheets(); renderChatLog(true); renderChatFoot(); chatConnect();
+}
+function closeChat() { $('chat').hidden = true; $('chatBtn').setAttribute('aria-expanded', 'false'); chat.err = ''; chatDrop(); syncSheets(); markChat(); }
+function chatConnect() {
+  if (!API || chat.ws || !chatOpen() || document.hidden) return;
+  clearTimeout(chat.retry); chat.retry = 0;
+  const ws = chat.ws = new WebSocket(API.replace(/^http/, 'ws') + '/chat');
+  ws.onopen = () => { chat.tries = 0; const s = chatSig(); if (s) ws.send(JSON.stringify({ t: 'auth', ...s })); chat.ping = setInterval(() => ws.send('ping'), 45e3); renderChatFoot(); };
+  ws.onmessage = e => { if (e.data !== 'pong') try { onChat(JSON.parse(e.data)); } catch {} };
+  ws.onclose = () => {           // (dropped by the network or the server: tried again while the card is open, after 1, 2, 4… 30 seconds)
+    if (chat.ws !== ws) return;
+    clearInterval(chat.ping); chat.ws = null; chat.ping = 0; chat.authed = false; chat.here = 0; renderHere(); renderChatFoot();
+    if (chatOpen() && !document.hidden) chat.retry = setTimeout(chatConnect, Math.min(30e3, 1000 * 2 ** chat.tries++));
+  };
+  renderChatFoot();
+}
+function chatDrop() { clearTimeout(chat.retry); clearInterval(chat.ping); chat.retry = chat.ping = 0; const ws = chat.ws; chat.ws = null; chat.authed = false; chat.here = 0; renderHere(); if (ws) ws.close(); }
+document.addEventListener('visibilitychange', () => document.hidden ? chatDrop() : chatConnect());
+function onChat(m) {
+  if (m.t === 'hist') { chat.msgs = m.msgs || []; renderChatLog(true); }
+  else if (m.t === 'msg') { chat.msgs.push(m.m); if (chat.msgs.length > 300) chat.msgs.shift(); if (chat.authed && m.m.by === chat.by) chat.sent = ''; renderChatLog(); }
+  else if (m.t === 'del') { chat.msgs = chat.msgs.filter(x => !m.ids.includes(x.id)); renderChatLog(); }
+  else if (m.t === 'here') { chat.here = m.n; renderHere(); }
+  else if (m.t === 'auth') { chat.authed = !!m.ok; chat.name = m.name || ''; chat.by = m.by || ''; chat.err = m.ok ? '' : m.error || ''; if (m.resign) keepSig(null); renderChatLog(); renderChatFoot(); }
+  else if (m.t === 'err') {           // (a message refused: its text goes back into the field)
+    chat.err = m.error || ''; if (m.resign) { keepSig(null); chat.authed = false; }
+    if (chat.sent && !chatIn.value) chatIn.value = chat.sent; chat.sent = ''; renderChatFoot();
+  }
+}
+function renderHere() { $('chatHere').textContent = !chat.here ? '' : chat.here === 1 ? 'Only you have the chat open.' : `${chat.here} people have the chat open.`; }
+function markChat() { $('chatBtn').classList.toggle('new', !chatOpen() && chat.last > chat.seen); }
+// the messages, oldest first; one under another by the same address within five minutes goes without its name. The log stays
+// at its newest message unless it was scrolled up (stick), also when the lines around it change its height.
+function renderChatLog(jump) {
+  const log = $('chatLog'), end = jump || chat.stick;
+  let prev = null;
+  log.replaceChildren(...(chat.msgs.length ? chat.msgs.map(m => {
+    const more = prev && prev.by === m.by && prev.name === m.name && m.at - prev.at < 5 * 60e3; prev = m;
+    return el('div', { className: 'm' + (more ? ' more' : '') + (chat.by && m.by === chat.by ? ' me' : '') },
+      ...(more ? [] : [el('div', {}, el('b', {}, m.name), el('small', {}, `${m.by} · ${chatWhen(m.at)}`))]), el('p', {}, m.text));
+  }) : chat.ws && chat.ws.readyState === 1 ? [el('p', { className: 'dim' }, 'No messages yet.')] : []));
+  if (end) { log.scrollTop = log.scrollHeight; chat.stick = true; }
+  const top = chat.msgs.length ? chat.msgs[chat.msgs.length - 1].id : 0;
+  if (chatOpen() && top > chat.seen) { chat.seen = top; try { localStorage.setItem(CHAT_KEY + '-seen', String(top)); } catch {} }
+  chat.last = Math.max(chat.last, top); markChat();
+}
+// Under the messages: the field to write in, or what writing needs. It is drawn again only when that changes, so that what
+// is being typed stays.
+const chatIn = el('input', { id: 'chatIn', type: 'text', maxLength: CHAT_MAX, autocomplete: 'off', enterKeyHint: 'send', ariaLabel: 'Message', oninput: () => { if (chat.err) chat.err = chatErr.textContent = ''; } });
+const chatErr = el('div', { className: 'err', role: 'alert' });
+const chatForm = el('form', { onsubmit: e => {
+  e.preventDefault(); const text = chatIn.value.replace(/\s+/g, ' ').trim();
+  if (!text || !chat.ws || chat.ws.readyState !== 1) return;
+  chat.sent = text; chat.err = chatErr.textContent = ''; chat.ws.send(JSON.stringify({ t: 'say', text })); chatIn.value = '';
+} }, chatIn, el('button', { type: 'submit', className: 'btn' }, 'Send'));
+function renderChatFoot() {
+  const left = !drawing && fig.codes.length >= FIG_MIN && !!fig.name && !!fig.addr;        // (a constellation left from this browser)
+  const state = !chat.ws || chat.ws.readyState !== 1 ? (chat.tries ? 'lost' : 'wait') : chat.authed ? 'in' : left && (!wallet || wallet === fig.addr) ? 'sign' : wallet ? 'out' : 'outw';
+  chatErr.textContent = chat.err;
+  const key = state + (state === 'in' ? chat.name : state === 'sign' ? fig.addr : '');
+  if (key === chat.foot) return;
+  chat.foot = key;
+  const f = $('chatFoot'), btn = (text, onclick) => el('button', { type: 'button', className: 'btn', onclick }, text);
+  if (state === 'wait' || state === 'lost') f.replaceChildren(el('p', { className: 'dim' }, state === 'wait' ? 'Connecting to the chat…' : 'The chat cannot be reached. Trying again…'));
+  else if (state === 'in') { chatIn.placeholder = `Write as ${chat.name}`; f.replaceChildren(chatForm, chatErr); }
+  else if (state === 'sign') f.replaceChildren(el('p', {}, `Writing needs a signature from the wallet of ${shortAddr(fig.addr)} once a day. It costs nothing and sends no transaction.`), btn('Sign to write', chatSign), chatErr);
+  else f.replaceChildren(el('p', {}, `Addresses on the allowlist can write here. Leave a constellation to add yours${state === 'out' ? '.' : ', or connect the wallet that left one.'}`),
+    el('div', { className: 'row' }, btn('Constellation', openFig), ...(state === 'outw' ? [btn('Connect', connect)] : [])), chatErr);
+}
+async function chatSign() {
+  const a = wallet || await connect(); if (!a) return;
+  if (fig.addr !== a) return;         // (an address without a constellation: the footer now says how to write)
+  const time = new Date().toISOString(); let sig;
+  try { sig = await window.ethereum.request({ method: 'personal_sign', params: [hexText(chatText(a, time)), a] }); }
+  catch { chat.err = 'The chat was not signed.'; renderChatFoot(); return; }
+  keepSig({ addr: a, time, sig }); chat.err = '';
+  if (chat.ws && chat.ws.readyState === 1) chat.ws.send(JSON.stringify({ t: 'auth', addr: a, time, sig }));
 }
 // ---- names. The same lines are in server/src/worker.js, which refuses the name too.
 // Names that are refused: slurs, hate slogans, and explicit sexual words and the strongest swearing. The name is
@@ -1006,7 +1134,7 @@ async function leave(name, err) {
   if (!a) { err.textContent = 'Connect a wallet to sign the constellation.'; return; }
   const time = new Date().toISOString(), text = `Vigil constellation\nName: ${name}\nCluster: ${fig.cluster}\nSystems: ${fig.codes.join(', ')}\nAddress: ${a}\nTime: ${time}`;
   let sig;
-  try { sig = await window.ethereum.request({ method: 'personal_sign', params: ['0x' + [...new TextEncoder().encode(text)].map(b => b.toString(16).padStart(2, '0')).join(''), a] }); }
+  try { sig = await window.ethereum.request({ method: 'personal_sign', params: [hexText(text), a] }); }
   catch { err.textContent = 'The constellation was not signed.'; return; }
   const { ok, body } = await ask('/constellation', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cluster: fig.cluster, codes: fig.codes, name, addr: a, time, sig }) });
   if (!ok) { err.textContent = body.error || 'The server could not be reached. Try again.'; return; }
@@ -1027,7 +1155,7 @@ function link(i) {
 }
 function reset() { fig = { cluster: 0, codes: [], name: '', addr: '' }; drawing = false; save(); makeLabels(); renderFig(); wake(); }
 // The constellation's card stays open while you click around the map, until it is closed (its menu entry opens and closes it).
-function openFig() { if (jumping) return; if (PHONE.matches) openPanel(false); $('figCard').hidden = false; renderFig(); syncSheets(); wake(); }
+function openFig() { if (jumping) return; if (PHONE.matches) { openPanel(false); if (chatOpen()) closeChat(); } $('figCard').hidden = false; renderFig(); syncSheets(); wake(); }
 function closeFig() { $('figCard').hidden = true; renderFig(); syncSheets(); wake(); }
 // the view that holds the whole figure, travelling to its cluster first
 function showFig() {
@@ -1155,18 +1283,18 @@ function clickAt(cx, cy) {
 // ---- the panels
 let pieceFor = null;
 function showView(name) { for (const v of ['list', 'sys', 'cairn', 'mint', 'far']) $('v-' + v).hidden = v !== name; if (name !== 'sys') sel = -1; syncPiece(); }
-function openPanel(yes) { if (yes && PHONE.matches && !$('figCard').hidden) { $('figCard').hidden = true; renderFig(); } $('panel').hidden = !yes; $('openPanel').hidden = yes; syncSheets(); syncPiece(); wake(); }
+function openPanel(yes) { if (yes && PHONE.matches && !$('figCard').hidden) { $('figCard').hidden = true; renderFig(); } if (yes && PHONE.matches && chatOpen()) closeChat(); $('panel').hidden = !yes; $('openPanel').hidden = yes; syncSheets(); syncPiece(); wake(); }
 // The panel floats over the map's right side, so while it shows, the middle of the view (where what you travel to comes
 // to rest) is the middle of the map that is left: offX shifts the whole picture left by half the panel's width, in the
 // view's own units (the stage is 2 wide).
 function setOff() {
   if (PHONE.matches) {                               // a phone: the sheet open at the bottom moves the middle up by the share it covers
-    const sh = !$('panel').hidden ? $('panel') : !$('figCard').hidden ? $('figCard') : null;
+    const sh = !$('panel').hidden ? $('panel') : !$('figCard').hidden ? $('figCard') : chatOpen() ? $('chat') : null;
     offAim = 0; offYAim = sh ? Math.min(0.6, sh.offsetHeight / stageH) : 0;
   } else { offYAim = 0; offAim = $('panel').hidden ? 0 : -($('panel').offsetWidth + 14) / stageW; }
 }
 // one sheet at a time on a phone; the buttons in the corners give way while one is open
-function syncSheets() { $('app').classList.toggle('sheet', PHONE.matches && (!$('panel').hidden || !$('figCard').hidden)); setOff(); }
+function syncSheets() { $('app').classList.toggle('sheet', PHONE.matches && (!$('panel').hidden || !$('figCard').hidden || chatOpen())); setOff(); }
 // The piece itself, moving, in the panel of the system that is drawn from it. It runs only while that panel shows.
 function syncPiece() {
   const want = C && !$('panel').hidden && !$('v-sys').hidden && sel >= 0 ? C.sys[sel] : null;
@@ -1214,7 +1342,7 @@ function renderFig() {
   const n = fig.codes.length, box = $('figDo'), here = fig.cluster === C.n, has = n >= FIG_MIN && !drawing, left = has && !!fig.name && !!fig.addr, others = othersHere();
   $('count').textContent = drawing ? `${n} linked` : left ? 'done' : '';
   $('carry').textContent = drawing ? `Drawing a constellation: ${n} ${n === 1 ? 'system' : 'systems'} linked. ${TOUCH ? 'Tap' : 'Click'} a system to link it.` : '';
-  $('navFig').hidden = !left || !$('figCard').hidden; $('figName').textContent = fig.name;      // (while the card is open, its own button shows the figure)
+  $('navFig').hidden = !left || !$('figCard').hidden; $('figName').textContent = fig.name; renderChatFoot();      // (while the card is open, its own button shows the figure)
   const list = () => el('ol', { className: 'fig' }, ...fig.codes.map(c => el('li', {}, c)));
   const room = others.length >= FIG_CAP ? el('div', {}, el('p', { className: 'dim' }, `This cluster already holds ${FIG_CAP} constellations, which is as many as a cluster keeps.`), el('button', { type: 'button', className: 'btn', onclick: findRoom }, 'Travel to the nearest cluster with room'))
     : el('button', { type: 'button', className: has ? 'link' : 'btn', onclick: startDrawing }, has ? (here ? 'Draw it again' : `Draw a new one here, in ${clusterName(C.n)}`) : 'Draw a constellation here');
@@ -1388,6 +1516,9 @@ addEventListener('keydown', e => {
 $('navMap').onclick = () => ready && toMap();
 $('navFar').onclick = () => ready && toFar();
 $('figCount').onclick = () => ready && openFig();
+$('chatBtn').hidden = !API; $('chatBtn').onclick = () => chatOpen() ? closeChat() : openChat(); $('chatHide').onclick = closeChat;
+$('chatLog').addEventListener('scroll', e => { const l = e.target; chat.stick = l.scrollHeight - l.scrollTop - l.clientHeight < 40; }, { passive: true });
+new ResizeObserver(() => { if (chat.stick) $('chatLog').scrollTop = $('chatLog').scrollHeight; }).observe($('chatLog'));
 $('doneBack').onclick = () => closeDone(true);
 $('doneShare').onclick = shareDone;
 $('hidePanel').onclick = () => openPanel(false); $('openPanel').onclick = () => openPanel(true);
@@ -1554,9 +1685,9 @@ function menu(open) { $('side').classList.toggle('open', open); $('menuBtn').set
 $('menuBtn').onclick = e => { e.stopPropagation(); menu(!$('side').classList.contains('open')); };
 for (const b of document.querySelectorAll('#side nav > button, .site-links a:not(.later)')) b.addEventListener('click', () => { if (PHONE.matches) menu(false); });
 addEventListener('pointerdown', e => { if ($('side').classList.contains('open') && !e.target.closest('#side nav, #menuBtn')) menu(false); });
-new ResizeObserver(setOff).observe($('panel')); new ResizeObserver(setOff).observe($('figCard'));
+new ResizeObserver(setOff).observe($('panel')); new ResizeObserver(setOff).observe($('figCard')); new ResizeObserver(setOff).observe($('chat'));
 if (PHONE.matches) openPanel(false);                 // (a phone starts with the map alone)
-PHONE.addEventListener('change', () => { if (PHONE.matches) { menu(false); if (!$('panel').hidden && !$('figCard').hidden) openPanel(false); } syncSheets(); wake(); });
+PHONE.addEventListener('change', () => { if (PHONE.matches) { menu(false); if (!$('panel').hidden && !$('figCard').hidden) openPanel(false); if (chatOpen() && (!$('panel').hidden || !$('figCard').hidden)) closeChat(); } syncSheets(); wake(); });
 $('conn').onclick = onConn;
 $('disconnect').onclick = disconnect;
 addEventListener('click', e => { if (!$('connMenu').hidden && !$('connMenu').contains(e.target)) connMenu(false); });
