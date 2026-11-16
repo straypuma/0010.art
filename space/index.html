@@ -1,0 +1,1319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#1e1f23">
+<link rel="icon" href="../assets/favicon.png" sizes="64x64" type="image/png">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<title>Vigil · space</title>
+<style>
+  /* One dark look on purpose. A map in the middle, a menu on the left, and on the right whatever was clicked last. */
+  :root { --bg: #1e1f23; --panel: #17181b; --fg: #e9e1d5; --dim: #968e85; --line: rgba(233, 225, 213, .13); --accent: #e0655c;
+    --btn: rgba(233, 225, 213, .07); --btn-h: rgba(233, 225, 213, .15); color-scheme: dark; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); overflow: hidden;
+    font: 12px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  /* the bar: the 0010.art one, on a dark ground */
+  #bar { position: absolute; z-index: 4; left: 0; right: 0; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; pointer-events: none;
+    padding: calc(14px + env(safe-area-inset-top, 0px)) calc(18px + env(safe-area-inset-right, 0px)) 14px calc(18px + env(safe-area-inset-left, 0px)); }
+  #bar a, #bar button { pointer-events: auto; text-shadow: 0 0 3px #000, 0 0 9px #000; }
+  #bar .brand { display: flex; }
+  #bar .brand svg { width: 26px; height: 26px; }
+  #bar nav { display: flex; gap: clamp(9px, 2.6vw, 30px); font-size: clamp(11px, 3.1vw, 12.5px); line-height: 1; }
+  #bar nav a { position: relative; padding: 6px 0; text-decoration: none; color: var(--dim); white-space: nowrap; }
+  #bar nav a::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: currentColor; scale: 0 1; }
+  #bar nav a:hover, #bar nav a[aria-current="page"] { color: var(--fg); }
+  #bar nav a:hover::after, #bar nav a[aria-current="page"]::after { scale: 1 1; }
+  #bar a:focus-visible { outline: 1px solid var(--fg); outline-offset: 3px; }
+  #bar nav { align-items: center; }
+  #bar nav a.info, #bar nav a.info:hover { color: var(--accent); }
+  #bar .conn { padding: 6px 12px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--line); color: var(--fg); line-height: 1; }
+  #bar .conn:hover { box-shadow: inset 0 0 0 1px var(--fg); }
+  /* The map fills the window. The bar and the menu on the left lie over it with no ground of their own, and let clicks
+     and scrolls through wherever they are empty. The panel on the right is a card that floats over it, under the bar;
+     --pw is the width the card takes from the map's right side (nothing while it is hidden). */
+  #app { display: grid; grid-template-columns: 272px minmax(0, 1fr) auto; height: 100%; --pw: 330px; }
+  #app:has(#panel[hidden]) { --pw: 0px; }
+  aside { background: var(--panel); overflow-y: auto; overscroll-behavior: contain; padding: 18px 18px 28px; }
+  #side { grid-column: 1; grid-row: 1; z-index: 2; align-self: start; background: none; overflow: visible; pointer-events: none; padding-top: 76px; text-shadow: 0 0 3px #000, 0 0 9px #000; }
+  #side button { pointer-events: auto; }
+  #stage { grid-column: 1 / 4; grid-row: 1; }
+  #panel { grid-column: 3; grid-row: 1; z-index: 1; align-self: start; width: 316px; max-height: calc(100% - 78px); margin: 64px 14px 14px 0;
+    border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 28px rgb(0 0 0 / .35); }
+  h1 { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: .02em; }
+  h2 { font-size: 14px; font-weight: 600; margin: 0 0 2px; }
+  h3 { font-size: 12px; font-weight: 600; margin: 18px 0 0; color: var(--accent); }
+  p { margin: 10px 0; }
+  .dim { color: var(--dim); }
+  .head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  button, input { font: inherit; color: inherit; }
+  button { background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+  button:focus-visible, input:focus-visible { outline: 1px solid var(--fg); outline-offset: 2px; }
+  .link { color: var(--dim); text-decoration: underline dotted; text-underline-offset: 3px; }
+  .link:hover { color: var(--fg); }
+  .btn { background: var(--btn); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+  .btn:hover { background: var(--btn-h); }
+  a.btn { display: inline-block; text-decoration: none; color: var(--fg); }
+  #toMint { margin-top: 8px; }
+  /* the menu: a tree that opens and closes */
+  #side nav { display: flex; flex-direction: column; align-items: flex-start; }
+  #side nav > button { display: flex; padding: 3px 0; cursor: pointer; }
+  #side nav > button > span + span { margin-left: 14px; }
+  #side nav > button::before { content: '>'; margin-right: 6px; color: var(--dim); }
+  /* the map */
+  #stage { position: relative; min-width: 0; overflow: hidden; background: var(--bg); }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; -webkit-user-select: none; user-select: none; }
+  canvas.drag { cursor: grabbing; }
+  canvas.over { cursor: pointer; }
+  #labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  #labels div { position: absolute; left: 0; top: 0; white-space: nowrap; color: var(--fg); font-size: 11px; text-shadow: 0 0 3px #000, 0 0 8px #000; will-change: transform; }
+  #labels div.on { color: #fff; text-decoration: underline dotted; text-underline-offset: 3px; }
+  #labels div.mark { color: var(--accent); }
+  #status { position: absolute; left: calc(16px + env(safe-area-inset-left, 0px)); right: calc(210px + var(--pw)); bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    pointer-events: none; color: var(--fg); opacity: .78; text-shadow: 0 0 3px #000, 0 0 10px #000; }
+  #tools { position: absolute; right: calc(14px + var(--pw)); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 6px; }
+  #tools button, .open { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; min-width: 30px; height: 30px; padding: 0 9px; text-align: center; }
+  #tools button:hover, .open:hover { background: #2a2b31; }
+  .open { position: absolute; top: 64px; }
+  #openPanel { right: calc(12px + env(safe-area-inset-right, 0px)); }
+  #toast { position: absolute; left: calc(50% - var(--pw) / 2); top: 64px; transform: translateX(-50%); max-width: min(420px, 80%);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; text-align: center; }
+  /* the right panel */
+  #filter, #addr { width: 100%; background: var(--btn); border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; }
+  #rows { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  #rows button { display: flex; align-items: center; gap: 10px; width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+  #rows button:hover { background: var(--btn); }
+  .sw { flex: none; width: 38px; height: 38px; border-radius: 4px; background: #000; }
+  #rows span { display: block; min-width: 0; }
+  #rows small { display: block; color: var(--dim); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #pieceBox { margin: 12px 0; background: #000; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+  /* The piece's own page asks for a light colour scheme. Unless its frame says the same, the browser paints the frame's
+     backdrop white, which showed as a white line wherever the piece left a pixel of the frame uncovered. */
+  #pieceBox iframe { display: block; width: 100%; border: 0; color-scheme: light; }
+  dl { display: grid; grid-template-columns: auto 1fr; gap: 1px 14px; margin: 12px 0 0; }
+  dt { color: var(--dim); } dd { margin: 0; }
+  ol.fig { list-style: none; padding: 0; margin: 10px 0; counter-reset: n; }
+  ol.fig li { display: flex; gap: 10px; padding: 3px 0; border-top: 1px solid var(--line); counter-increment: n; }
+  ol.fig li::before { content: counter(n); color: var(--dim); }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  .btn:disabled { opacity: .4; cursor: default; }
+  form { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+  .err { color: var(--accent); }
+  #src { position: fixed; left: -10000px; top: 0; width: 400px; height: 500px; border: 0; }
+</style>
+</head>
+<body>
+<header id="bar">
+  <a class="brand" href="https://0010.art/" aria-label="0010, index"><svg viewBox="-114 -114 228 228" aria-hidden="true"><circle r="105" fill="#e9e1d5"/><circle r="85" fill="#1e1f23"/><circle r="13.5" fill="#e9e1d5"/></svg></a>
+  <nav aria-label="Sections">
+    <a href="#" class="info" id="mintInfo">mint info</a>
+    <a href="#" aria-current="page">space</a>
+    <a href="#">my systems</a>
+    <a href="#">my collection</a>
+    <a href="#">vigil</a>
+    <button class="conn" id="conn" type="button">connect</button>
+  </nav>
+</header>
+<div id="app">
+  <aside id="side">
+    <nav>
+      <button type="button" id="navMap"><span>This whole cluster</span></button>
+      <button type="button" id="navFar"><span>Other clusters</span></button>
+      <button type="button" id="navCairn"><span>The cairn</span></button>
+      <button type="button" id="navDraw"><span>Constellation</span><span class="dim" id="count"></span></button>
+      <button type="button" id="navFig" hidden><span id="figName"></span></button>
+    </nav>
+  </aside>
+  <main id="stage">
+    <canvas id="c"></canvas>
+    <div id="labels"></div>
+    <button class="open" id="openPanel" type="button" hidden>Systems</button>
+    <div id="status"><div id="where"></div><div id="carry"></div></div>
+    <div id="tools">
+      <button type="button" id="zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
+      <button type="button" id="zoomIn" title="Zoom in" aria-label="Zoom in">+</button>
+      <button type="button" id="toCairn" title="Travel to the cairn">cairn</button>
+      <button type="button" id="toAny" title="Travel to a system picked at random">any</button>
+    </div>
+    <div id="toast" role="status" hidden></div>
+  </main>
+  <aside id="panel">
+    <section id="v-list">
+      <div class="head"><h2>Systems <span class="dim" id="nSys"></span></h2><button class="link" id="hidePanel" type="button">hide</button></div>
+      <div class="dim" id="whichCluster"></div>
+      <p><input id="filter" type="search" placeholder="Filter by seed, palette or folds" aria-label="Filter the systems" autocomplete="off" spellcheck="false"></p>
+      <div id="rows"></div>
+    </section>
+    <section id="v-sys" hidden>
+      <div class="head"><button class="link" type="button" data-back>← all systems</button><button class="link" type="button" data-hide>hide</button></div>
+      <h2 id="sysCode"></h2>
+      <div class="dim" id="sysSub"></div>
+      <div id="pieceBox"></div>
+      <dl id="traits"></dl>
+    </section>
+    <section id="v-cairn" hidden>
+      <div class="head"><button class="link" type="button" data-back>← all systems</button><button class="link" type="button" data-hide>hide</button></div>
+      <h2>The cairn</h2>
+      <p>A cairn is a pile of stones that travelers add to as they pass, so that the next person can see the way has been walked before. The one at the center of this cluster has a small light on it, which is kept burning through the night.</p>
+      <p>Whoever passes can leave a constellation: a figure of three to seven systems, linked with lines and given a name. Leaving one adds your address to the allowlist for the mint.</p>
+      <p><button class="btn" type="button" id="cairnFig">Constellation</button></p>
+    </section>
+    <section id="v-mint" hidden>
+      <div class="head"><button class="link" type="button" data-back>← all systems</button><button class="link" type="button" data-hide>hide</button></div>
+      <h2>Mint info</h2>
+      <h3>Allowlist phase</h3>
+      <p>Open until November 20, 11:59 pm EST. Leaving a constellation adds your address to the allowlist.</p>
+      <p><button class="btn" type="button" id="mintFig">Constellation</button></p>
+      <h3>Mint phase</h3>
+      <dl>
+        <dt>Allowlist</dt><dd>48 hours · 0.0099 ETH</dd>
+        <dt>Public</dt><dd>48 hours · 0.015 ETH</dd>
+      </dl>
+      <p><a class="btn" id="toMint" href="https://0010.art/vigil/mint/" target="_blank" rel="noopener">mint ↗︎</a></p>
+    </section>
+    <section id="v-fig" hidden>
+      <div class="head"><button class="link" type="button" data-back>← all systems</button><button class="link" type="button" data-hide>hide</button></div>
+      <h2>Constellation</h2>
+      <p>People who keep watch at night pick out figures among the stars and give them names. If you link three to seven systems of one cluster with lines and name the figure, you can add your address to the allowlist for the mint. Every cluster keeps its own constellations, eight at most.</p>
+      <div id="figDo"></div>
+      <p><button class="link" type="button" id="reset">Clear the constellation (for testing)</button></p>
+    </section>
+  </aside>
+</div>
+<script src="piece.js"></script>
+<script>
+// Vigil realms: Vigil pieces as clusters of small systems that you look at from where you are (an experiment for the mint
+// page, 2026-11-15).
+// Every system is one seed of the real piece. The piece is opened in a hidden frame and asked for each seed's scene (about
+// 1 ms a seed): a scene's bands of gravel become belts round a centre, in the bands' own colours and spacing; its spheres
+// become planets; an eclipse or a black hole in the piece becomes the centre in place of a star; and its Folds trait gives
+// the system its shape (Strata: flat belts with gaps, Rings: thin ringlets, Curtain: belts that rise and fall, Aurora:
+// spiral arms). Gravel is only ever a belt stone or a far star.
+// Everything is drawn as flat ink on a charcoal ground, the way the piece prints: nothing is lit, nothing blurs, a star
+// is a four-point mark, and a thin ring marks what can be picked up or travelled to.
+// You stay put until you click; a click travels to what is under it and opens it in the panel on the right. Zoomed far
+// out, other clusters come into sight. Every cluster has a number that fixes its place and its 36 seeds, so the map is
+// the same for everyone; a cluster is built when you travel to it.
+// The way onto the allowlist is a constellation: you link three to seven systems of one cluster with lines, name the
+// figure, and leave an address. A cluster keeps eight constellations at most. Nothing is sent yet: this page has no
+// server, so the only constellation you see is your own. The cairn at the centre of the first cluster tells the story.
+// With a constellation server (server/main.ts; its address in API below), the visitor signs the constellation with a
+// wallet instead of typing an address, the server keeps it, and everyone sees the constellations of the cluster they are in.
+// Nothing runs while the page is hidden.
+const PIECE = '../../../prototypes/gravel-hours.html';
+// A shared copy of this page carries the piece's source in PIECE_HTML (set by an earlier script), and opened straight from
+// disk the page loads it from piece.js beside it (share.mjs writes both). With it, the piece is opened in a srcdoc frame,
+// which shares this page's origin wherever the page is; the piece takes its settings from __vigilParams there.
+let PIECE_HTML = typeof window.PIECE_HTML === 'string' ? window.PIECE_HTML : null;
+// Where the constellation server is (server/, a Cloudflare Worker). ?api= or VIGIL_API name another one, for a test.
+// Shown inside another page's frame (the shared copy), the page may not reach it, so there it uses none: with none, the
+// page keeps a constellation in this browser only.
+const API = self !== top ? '' : (new URLSearchParams(location.search).get('api') || window.VIGIL_API || 'https://vigil-constellations.vigil-constellations.workers.dev').replace(/\/+$/, '');
+const TOUCH = matchMedia('(pointer: coarse)').matches, CALM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const N_SYS = 36;                          // systems in a cluster
+const PER_SYS = TOUCH ? 4500 : 36000;      // belt stones in one system
+const FIELD = TOUCH ? 8000 : 14000;        // far stars inside a cluster
+const SKY = 4000;                          // stars beyond the clusters
+const N_FAR = 7;                           // other clusters in sight
+const N_CLUSTERS = 64;                     // clusters on the map; each has a number, and 0 is the cairn's
+const EDGE_IN = 64, EDGE_N = 128, EDGE_ROWS = 12;   // band edges: places sampled along a piece, angles round a system, edges kept for a system
+const FOV = 62 * Math.PI / 180;
+const HOME = 170, MAP = 880, FAR_VIEW = 5200, MIN_DIST = 0.3, MAX_DIST = 6000, CLUSTER_R = 1000;
+const HOLE_RS = 0.15, HOLE_R = 13.4 * HOLE_RS;    // a black hole's radius, and the half size of the square its picture is drawn in
+const RED = [0.89, 0.3, 0.24], LANTERN = [1, 0.8, 0.52], CAIRN_STONE = [0.6, 0.58, 0.54], PALE = [0.8, 0.82, 0.9];
+const $ = id => document.getElementById(id);
+const canvas = $('c');
+const Q = new URLSearchParams(location.search);
+const FPS = Math.max(10, Math.min(120, +Q.get('fps') || 60));   // frames a second at most while something moves
+const IDLE_FPS = Math.min(FPS, 30);                              // and while only the belts turn
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const smooth = (a, b, x) => { const k = clamp((x - a) / (b - a), 0, 1); return k * k * (3 - 2 * k); };
+const norm = v => { const l = Math.hypot(...v) || 1; return v.map(x => x / l); };
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const byte = v => Math.max(0, Math.min(255, Math.round(v * 255)));
+// random numbers that come out the same every time for the same seed, so a seed always gives the same system
+function rng(a) { return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const hashStr = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return h >>> 0; };
+const gauss = R => (R() + R() + R() + R() - 2) * 1.22;
+const ABC = 'abcdefghjkmnpqrstuvwxyz23456789';
+const codesFrom = (R, first) => { const out = first ? [first] : []; while (out.length < N_SYS) out.push(Array.from({ length: 10 }, () => ABC[Math.floor(R() * ABC.length)]).join('')); return out; };
+const CODES = codesFrom(rng(20261115), 'gxvn7eqqm8');           // the first cluster's seeds, the same on every visit
+
+// ---- the piece: opened in a hidden frame, asked for every seed's scene, then removed
+function pieceSrcdoc(q) { return PIECE_HTML.replace(/<head>/i, m => `${m}<script>window.__vigilParams = ${JSON.stringify(q)};<\/script>`); }
+function readScenes(codes) {
+  return new Promise((res, rej) => {
+    const f = document.createElement('iframe');
+    f.id = 'src';
+    const q = `embed=1&seed=${encodeURIComponent(codes[0])}`;
+    if (PIECE_HTML) f.srcdoc = pieceSrcdoc(q); else f.src = `${PIECE}?${q}`;
+    let tries = 0;
+    f.onload = () => {
+      const poll = () => {
+        let L = null; try { L = f.contentWindow.__lab; } catch {}
+        if (L && L.scene && L.scene.layerAt && L.load) {
+          try { L.pause(true); res(codes.map(c => { L.load(c); return summary(L.scene); })); } catch (e) { rej(e); }
+          f.remove();
+        } else if (++tries > 120) { f.remove(); rej(new Error('The piece did not load.')); }
+        else setTimeout(poll, 50);
+      };
+      poll();
+    };
+    document.body.append(f);
+  });
+}
+// what the map needs of a scene: its bands (colours, gravel spacing, share of the picture), its spheres, its star colour,
+// and whether it holds an eclipse or a black hole
+function summary(sc) {
+  const n = Math.min(sc.layers.length, EDGE_ROWS - 1), at = (x, y) => clamp(sc.layerAt(x, y * sc.H) | 0, 0, n - 1);
+  // which way the bands run: going across them, the band changes more often than going along them
+  const P = 24, probe = []; let cx = 0, cy = 0;
+  for (let j = 0; j < P; j++) for (let i = 0; i < P; i++) probe.push(at((i + 0.5) / P, (j + 0.5) / P));
+  for (let j = 0; j < P; j++) for (let i = 0; i < P - 1; i++) { cx += probe[j * P + i] !== probe[j * P + i + 1]; cy += probe[i * P + j] !== probe[(i + 1) * P + j]; }
+  const upright = cx > cy, NA = EDGE_IN, NC = 96;
+  // edge[k * NA + a]: at place a along the bands, the share of the way across the piece that lies before band k. These
+  // are the band edges as the piece draws them (arches, stairs, dunes and all), and a system's belts take them over.
+  const edge = new Float32Array((n + 1) * NA), share = new Array(n).fill(0), count = new Array(n);
+  for (let a = 0; a < NA; a++) {
+    count.fill(0);
+    for (let c = 0; c < NC; c++) count[upright ? at((c + 0.5) / NC, (a + 0.5) / NA) : at((a + 0.5) / NA, (c + 0.5) / NC)]++;
+    let cum = 0; for (let k = 0; k < n; k++) { edge[k * NA + a] = cum / NC; cum += count[k]; share[k] += count[k] / (NC * NA); }
+    edge[n * NA + a] = 1;
+  }
+  return { H: sc.H, traits: { ...sc.traits }, glint: [...sc.glint], share, edge, holes: sc.holes | 0,
+    eclipse: sc.eclipse ? { col: [...sc.eclipse.col], corona: [...sc.eclipse.corona] } : null,
+    layers: sc.layers.slice(0, n).map(l => ({ col: [...l.col], gcol: [...l.gcol], sp: l.sp })),
+    stones: (sc.stones || []).filter(s => !s.hidden && s.kind < 2).map(s => ({ x: s.x, y: s.y, r: s.r, giant: s.kind === 1, col: s.col ? [...s.col] : [0.8, 0.8, 0.8] })) };
+}
+
+// ---- colours on a dark ground
+const lum = c => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+const mixc = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+const liftTo = (c, L) => { const l = lum(c); return l >= L ? c.slice() : l < 0.01 ? mixc(c, [0.32, 0.32, 0.32], 0.6) : c.map(v => Math.min(1, v * L / l)); };
+// A night band's stones are its gravel, in its ink. A paper band is light paper stippled with dark ink: most of its
+// stones take the paper's colour (see makeCluster), and the rest this ink, lifted, with some of the paper in it. So a
+// piece that is half night and half day keeps that contrast as a system.
+const stoneCol = l => lum(l.col) > 0.3 ? liftTo(mixc(l.col, l.gcol, 0.62), 0.4) : liftTo(l.gcol, 0.4);
+const css = c => `rgb(${c.map(v => byte(v)).join(' ')})`;
+
+// ---- WebGL
+const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, powerPreference: 'high-performance' });
+const NOISE = `
+float h31(vec3 p){ p = fract(p*0.1031); p += dot(p, p.yzx + 33.33); return fract((p.x + p.y)*p.z); }
+float vn3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f);
+  return mix(mix(mix(h31(i), h31(i + vec3(1, 0, 0)), f.x), mix(h31(i + vec3(0, 1, 0)), h31(i + vec3(1, 1, 0)), f.x), f.y),
+             mix(mix(h31(i + vec3(0, 0, 1)), h31(i + vec3(1, 0, 1)), f.x), mix(h31(i + vec3(0, 1, 1)), h31(i + vec3(1, 1, 1)), f.x), f.y), f.z); }`;
+// Stones, spheres and dark bodies, all flat ink: nothing is lit. Every one belongs to a system and circles its centre: uSys
+// holds, for each system, its centre, the two axes of its plane, its normal, how its plane rises and falls and how far
+// its belts tilt toward the rim; uEdge holds, for each system, where the edge of every band runs at 128 angles round the
+// centre (taken from the piece, see makeCluster). A stone's aA.x is its band and how far across the band it lies (2.25:
+// a quarter of the way across band 2), so it follows its band's edges as it circles: the shape stays put and the gravel
+// flows along it. posOf does the same sum on the CPU. aS.z says what a thing is: 0 a stone, 1 a sphere, 2 the dark disc
+// of an eclipse.
+// Pass 0: the ones big enough to make out, one flat shape per quad. Pass 1: stones smaller than a pixel, their light
+// added: each is at least a dim point, dimmer the smaller its whole system looks, so a belt shows from across its system
+// and a far system is a faint disc of its own colours.
+const VS = `#version 300 es
+layout(location=0) in vec2 aC; layout(location=1) in vec4 aA; layout(location=2) in vec4 aK; layout(location=3) in vec3 aS;
+uniform highp sampler2D uSys, uEdge; uniform mat4 uProj; uniform mat3 uRot; uniform vec3 uCam; uniform vec2 uTan;
+uniform float uPass, uPx, uTime, uFloor, uOff, uFade;
+out vec2 vQ; out vec3 vCol; out float vSeed, vA, vKind;
+void cull(){ gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vA = 0.0; }
+void main(){
+  float r = aA.w; vKind = aS.z; vQ = aC; vCol = aK.rgb*uFade; vSeed = aK.a;
+  if (r <= 0.0) { cull(); return; }
+  int i = int(aS.x);
+  vec4 c = texelFetch(uSys, ivec2(0, i), 0), u = texelFetch(uSys, ivec2(1, i), 0), v = texelFetch(uSys, ivec2(2, i), 0), n = texelFetch(uSys, ivec2(3, i), 0);
+  vec4 g = texelFetch(uSys, ivec2(4, i), 0);
+  float th = aA.y + aS.y*uTime, rr = 0.0;
+  if (aA.x >= 0.0) {
+    float j = floor(aA.x), fa = fract((th + g.y*aA.x)/6.2832)*${EDGE_N}.0, k = fract(fa);
+    int a0 = int(fa) & ${EDGE_N - 1}, a1 = (a0 + 1) & ${EDGE_N - 1}, row = i*${EDGE_ROWS} + int(j);
+    float lo = mix(texelFetch(uEdge, ivec2(a0, row), 0).r, texelFetch(uEdge, ivec2(a1, row), 0).r, k);
+    float hi = mix(texelFetch(uEdge, ivec2(a0, row + 1), 0).r, texelFetch(uEdge, ivec2(a1, row + 1), 0).r, k);
+    rr = mix(lo, hi, aA.x - j);
+  }
+  float y = aA.z + u.w*rr*sin(v.w*th + n.w), tilt = g.x*rr/c.w, lz = rr*sin(th);
+  vec3 w = c.xyz + u.xyz*(rr*cos(th)) + v.xyz*(lz*cos(tilt) - y*sin(tilt)) + n.xyz*(lz*sin(tilt) + y*cos(tilt));
+  vec3 p = uRot*(w - uCam);
+  if (p.z < 0.004) { cull(); return; }
+  float rpx = r*uPx/p.z;
+  bool dust = rpx < 1.0;
+  if (dust != (uPass > 0.5)) { cull(); return; }
+  vA = 1.0;
+  if (dust) {
+    float spx = c.w*uPx/p.z; vA = vKind > 1.5 ? 0.0 : max(min(1.0, 5.0*rpx*rpx), min(0.9, spx*spx*uFloor));   // (a stone of half a pixel already shows in full)
+    if (vA < 0.004) { cull(); return; }
+    r = 1.25*p.z/uPx;
+  }
+  if (abs(p.x) - r > p.z*uTan.x*(1.02 + uOff) || abs(p.y) - r > p.z*uTan.y*1.02) { cull(); return; }   // off screen
+  gl_Position = uProj*vec4(p.x + aC.x*r, p.y + aC.y*r, -p.z, 1.0);
+}`;
+const FS = `#version 300 es
+precision highp float;
+in vec2 vQ; in vec3 vCol; in float vSeed, vA, vKind;
+uniform float uPass;
+out vec4 o;
+${NOISE}
+void main(){
+  float a = atan(vQ.y, vQ.x), s = vSeed*6.2832, rr = length(vQ);
+  if (uPass > 0.5) { o = vec4(vCol*vA*exp(-rr*rr*3.0), 1.0); return; }
+  // a pebble's outline is a little irregular, a sphere's is round
+  float edge = vKind > 0.5 ? 1.0 : 1.0 - 0.13*(0.5 + 0.5*sin(a*3.0 + s)) - 0.07*(0.5 + 0.5*sin(a*5.0 - s*2.3));
+  if (rr > edge) discard;
+  if (vKind > 1.5) {                                               // the dark body: only a little grain
+    o = vec4(vCol*(0.8 + 0.4*vn3(vec3(vQ*11.0, s)))*(1.0 - 0.25*smoothstep(0.7, 1.0, rr)), 1.0); return;
+  }
+  // A pebble is flat ink in two tones, as the piece prints its gravel. A sphere is a flat disc with a crisp edge, a broad
+  // soft fade across it from one side, its bands or mottle in shades of its own colour, and fine grain.
+  vec2 q = vQ/edge; vec3 c = vCol;
+  if (vKind < 0.5) c *= 0.9 + 0.13*smoothstep(0.4, 0.6, vn3(vec3(q*5.5 + s*3.0, s*5.0)));
+  else {
+    float d = s*1.7; vec2 dir = vec2(cos(d), sin(d)), off = vec2(vSeed*91.7, vSeed*37.3);
+    float pat = fract(vSeed*7.13) < 0.55
+      ? vn3(vec3((dot(q, vec2(-dir.y, dir.x)) + 0.14*vn3(vec3(q*2.6 + off, 1.0)))*(3.0 + 4.0*fract(vSeed*3.7)), off))
+      : 0.6*vn3(vec3(q*2.2 + off, 2.0)) + 0.4*vn3(vec3(q*5.0 + off, 3.0));
+    c *= mix(0.8, 1.1, smoothstep(0.3, 0.7, pat))*mix(0.5, 1.08, smoothstep(-0.9, 0.9, dot(q, dir)));
+    vec2 g = mat2(0.8, 0.6, -0.6, 0.8)*q;
+    c *= 0.9 + 0.12*vn3(vec3(g*95.0 + off, 4.0)) + 0.08*vn3(vec3(q*210.0 - off, 5.0));
+  }
+  o = vec4(c, 1.0);
+}`;
+// Marks and lights, each a square facing you that never gets smaller than aH.a pixels. aI.x says which: 0 a flat four-point
+// mark (a star, the cairn's lantern), 1 an eclipse's corona (light only outside the dark disc, in rays), 2 the thin ring of
+// light round a black hole, 3 a thin ring that marks something (a stone to pick up, another cluster). aI.y is the dark
+// disc's or the black hole ring's radius as a share of the square.
+const VS_GLOW = `#version 300 es
+layout(location=0) in vec2 aC; layout(location=1) in vec4 aG; layout(location=2) in vec4 aH; layout(location=3) in vec4 aI;
+uniform mat4 uProj; uniform mat3 uRot; uniform vec3 uCam; uniform float uPx, uDpr;
+out vec2 vQ; out vec3 vCol; out vec4 vI;
+void main(){
+  vQ = aC; vCol = aH.rgb; vI = aI;
+  vec3 p = uRot*(aG.xyz - uCam);
+  if (p.z < 0.01) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  float rpx = aG.w*uPx/p.z, minPx = aH.a*uDpr;
+  if ((aI.x < 0.5 || aI.x > 2.5) && rpx < minPx) vCol *= clamp(rpx/minPx*1.6, 0.7, 1.0);
+  float r = max(rpx, minPx)*p.z/uPx;
+  gl_Position = uProj*vec4(p.x + aC.x*r, p.y + aC.y*r, -p.z, 1.0);
+}`;
+const FS_GLOW = `#version 300 es
+precision highp float;
+in vec2 vQ; in vec3 vCol; in vec4 vI;
+out vec4 o;
+void main(){
+  float r2 = dot(vQ, vQ), r = sqrt(r2), g, aa = fwidth(vQ.x)*1.3;
+  if (vI.x < 0.5) { vec2 a = abs(vQ); o = vec4(vCol*(1.0 - smoothstep(-aa, aa, (pow(a.x, 0.56) + pow(a.y, 0.56) - 0.92)*0.9)), 1.0); return; }
+  if (vI.x > 2.5) { o = vec4(vCol*(1.0 - smoothstep(aa*0.5, aa*1.5, abs(r - 0.86))), 1.0); return; }
+  if (vI.x < 1.5) {
+    float th = atan(vQ.y, vQ.x), rays = 0.72 + 0.28*sin(th*7.0 + vI.z)*sin(th*13.0 - vI.z*2.0), d = max(r - vI.y, 0.0);
+    g = r < vI.y*0.97 ? 0.0 : exp(-d*10.0)*1.15*rays + exp(-d*3.2)*0.22;
+  } else { float d = (r - vI.y)/0.028; g = exp(-d*d)*1.3 + exp(-abs(r - vI.y)*8.0)*0.16*step(vI.y, r); }
+  o = vec4(vCol*g*(1.0 - smoothstep(0.8, 1.0, r2)), 1.0);
+}`;
+// Another cluster seen from far off: a flat square given by its centre and two axes, drawn as grains in two arms round a
+// bright middle, wound the same way as that cluster's stars will be when you get there. aV.w: how much of it shows.
+const VS_PLANE = `#version 300 es
+layout(location=0) in vec2 aC; layout(location=1) in vec4 aP; layout(location=2) in vec4 aU; layout(location=3) in vec4 aV; layout(location=4) in vec4 aL;
+uniform mat4 uProj; uniform mat3 uRot; uniform vec3 uCam;
+out vec2 vUV; out vec4 vL; out float vAlpha;
+void main(){
+  vUV = aC; vL = aL; vAlpha = aV.w;
+  vec3 p = uRot*(aP.xyz + (aU.xyz*aC.x + aV.xyz*aC.y)*aP.w - uCam);
+  gl_Position = uProj*vec4(p.xy, -p.z, 1.0);
+}`;
+const FS_PLANE = `#version 300 es
+precision highp float;
+in vec2 vUV; in vec4 vL; in float vAlpha;
+out vec4 o;
+void main(){
+  float r = length(vUV); if (r >= 1.0) discard;
+  float th = atan(vUV.y, vUV.x), n = fract(52.9829189*fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+  float rho = r*${CLUSTER_R.toFixed(1)}, arms = pow(0.5 + 0.5*cos(2.0*(th - vL.w - 2.2*log(1.0 + rho/90.0))), 4.0);
+  float b = (exp(-rho*rho/28800.0)*0.8 + arms*smoothstep(960.0, 420.0, rho)*smoothstep(20.0, 130.0, rho)*0.3 + 0.035*(1.0 - r))*(0.3 + 2.4*n*n*n);
+  o = vec4(vL.rgb*b*vAlpha, 1.0);
+}`;
+// Far stars: inside the cluster (they shift as you travel) and beyond every cluster (uSky: directions only, they never
+// shift). Each is a small hard dot, and one in fourteen is a four-point mark. None flickers.
+const VS_PT = `#version 300 es
+layout(location=0) in vec4 aP; layout(location=1) in vec4 aK;
+uniform mat3 uRot; uniform vec3 uCam; uniform vec2 uTan; uniform float uPx, uDpr, uSky, uOff, uFade;
+out vec3 vCol; out float vMark;
+void main(){
+  vec3 p = uRot*(uSky > 0.5 ? aP.xyz : aP.xyz - uCam);
+  if (p.z < 0.02) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 1.0; return; }
+  float s = uSky > 0.5 ? aP.w*uDpr : aP.w*uPx/p.z;
+  float b = pow(clamp(s/uDpr, uSky > 0.5 ? 0.0 : 0.3, 1.0), 1.4)*0.9;
+  vMark = step(0.93, fract(aK.a*7.3));
+  vCol = aK.rgb*b*uFade*(1.0 + 0.5*vMark);
+  gl_PointSize = clamp(s, uDpr, 2.4*uDpr)*(1.7 + 3.0*vMark);
+  gl_Position = vec4(p.x/(p.z*uTan.x) + uOff, p.y/(p.z*uTan.y), 0.0, 1.0);
+}`;
+const FS_PT = `#version 300 es
+precision highp float;
+in vec3 vCol; in float vMark; out vec4 o;
+void main(){
+  vec2 q = gl_PointCoord*2.0 - 1.0, a = abs(q);
+  float g = vMark > 0.5 ? 1.0 - smoothstep(0.78, 1.0, pow(a.x, 0.56) + pow(a.y, 0.56)) : (1.0 - smoothstep(0.35, 0.62, length(q)))*0.9;
+  o = vec4(vCol*g, 1.0);
+}`;
+// The ground: dark paper, after the ground of the artist's darker pieces ('Transient': a blue charcoal, about #24252a, with
+// a tooth of a pixel or two and a faint unevenness). One triangle over the whole view. The paper is fixed to the screen,
+// and everything else is printed over it.
+const VS_GROUND = `#version 300 es
+void main(){ gl_Position = vec4(gl_VertexID == 1 ? 3.0 : -1.0, gl_VertexID == 2 ? 3.0 : -1.0, 0.0, 1.0); }`;
+const FS_GROUND = `#version 300 es
+precision highp float;
+uniform float uDpr; out vec4 o;
+float h(vec2 p){ vec3 q = fract(vec3(p.xyx)*0.1031); q += dot(q, q.yzx + 33.33); return fract((q.x + q.y)*q.z); }
+float vn(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f); return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
+void main(){
+  vec2 p = gl_FragCoord.xy/uDpr;                                    // in CSS pixels, so the paper is the same on any screen
+  float tooth = 0.6*h(floor(p*1.5)) + 0.4*h(floor(p*0.75) + 7.0) - 0.5;
+  float fibre = vn(vec2(p.x*0.045, p.y*0.7)) + vn(vec2(p.x*0.6 + 40.0, p.y*0.05)) - 1.0;
+  float uneven = vn(p*0.03) + 0.6*vn(p*0.008 + 11.0) - 0.8;
+  o = vec4(vec3(0.116, 0.120, 0.137)*(1.0 + 0.3*tooth + 0.07*fibre + 0.1*uneven), 1.0);
+}`;
+// A black hole and its disc of gravel, as light bent round the hole shows them: the far side of the disc stands up over
+// the hole and shows again beneath it, and a thin ring of light runs round the dark middle. Each is a square facing you;
+// every pixel of it follows one ray of light past the hole in steps (the pull that bends it is the one that holds for
+// light near a mass that does not spin: 1.5 h^2 / r^5 toward the hole, h being the ray's angular momentum), and takes the
+// disc's ink wherever the ray crosses the disc's plane. Lengths are in the hole's radius: the disc runs from 2.7 to 12.
+// aP: centre and the square's half size. aU: the disc's normal and a seed. aV: the ink near the hole and how much of the
+// whole shows. aL: the ink at the rim and the hole's radius.
+const VS_HOLE = `#version 300 es
+layout(location=0) in vec2 aC; layout(location=1) in vec4 aP; layout(location=2) in vec4 aU; layout(location=3) in vec4 aV; layout(location=4) in vec4 aL;
+uniform mat4 uProj; uniform mat3 uRot; uniform vec3 uCam;
+out vec3 vQ; flat out vec3 vC, vN, vE, vIn, vOut; flat out float vSeed, vFade, vRs;
+void main(){
+  vec3 p = uRot*(aP.xyz - uCam);
+  vC = p; vN = uRot*aU.xyz; vE = uRot*normalize(cross(aU.xyz, abs(aU.y) < 0.9 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
+  vSeed = aU.w; vIn = aV.rgb; vFade = aV.w; vOut = aL.rgb; vRs = aL.w;
+  vQ = vec3(p.xy + aC*aP.w, p.z);
+  gl_Position = uProj*vec4(vQ.xy, -p.z, 1.0);
+}`;
+const FS_HOLE = `#version 300 es
+precision highp float;
+in vec3 vQ; flat in vec3 vC, vN, vE, vIn, vOut; flat in float vSeed, vFade, vRs;
+uniform float uTime;
+out vec4 o;
+${NOISE}
+const float RIN = 2.7, ROUT = 12.0, RB = 13.0;
+void main(){
+  vec3 d = normalize(vQ), pos = -vC/vRs, nv = normalize(vN), e1 = normalize(vE), e2 = cross(nv, e1);
+  float b = dot(pos, d), disc = b*b - dot(pos, pos) + RB*RB;
+  if (disc < 0.0) discard;                                          // the ray passes too far off to be bent or to meet the disc
+  pos += d*max(-b - sqrt(disc), 0.0);
+  vec3 vel = d, hv = cross(pos, vel); float h2 = dot(hv, hv);
+  vec4 acc = vec4(0.0);
+  for (int k = 0; k < 64; k++) {
+    float r2 = dot(pos, pos), r = sqrt(r2);
+    if (r < 1.0) { acc.a = 1.0; break; }                            // into the hole: black
+    if (r > RB*1.02 && dot(pos, vel) > 0.0) break;                  // out again
+    float dt = clamp(0.16*(r - 0.4), 0.05, 2.0);
+    vec3 a = -1.5*h2*pos/(r2*r2*r), np = pos + vel*dt + 0.5*a*dt*dt;
+    vel += a*dt;
+    float s0 = dot(pos, nv), s1 = dot(np, nv);
+    if (s0*s1 < 0.0) {                                              // through the disc's plane
+      vec3 x = mix(pos, np, s0/(s0 - s1)); float rho = length(x);
+      if (rho > RIN && rho < ROUT) {
+        // The disc is rings of gravel, each ring turning at its own pace, faster nearer the hole. Its ink is in streaks
+        // along the rings, with a grain, a little stronger on the side that turns toward you.
+        float f = (rho - RIN)/(ROUT - RIN), ring = floor(rho*3.0)/3.0, ang = uTime*1.1*pow(ring, -1.5) + vSeed, ca = cos(ang), sa = sin(ang);
+        vec2 q = vec2(dot(x, e1), dot(x, e2)), xr = vec2(q.x*ca + q.y*sa, q.y*ca - q.x*sa);
+        float streak = smoothstep(0.3, 0.72, vn3(vec3(rho*2.4 + vSeed*9.0, xr*0.16)));
+        float grain = vn3(vec3(xr*4.5, vSeed*5.0));
+        float toward = 1.0 - 0.38*dot(cross(nv, x)/rho, d);
+        vec3 col = mix(vOut, vIn, pow(1.0 - f, 2.2))*(0.42 + 0.7*streak)*(0.78 + 0.44*grain)*toward;
+        float al = clamp((0.45 + 0.75*streak)*smoothstep(0.0, 0.04, f)*smoothstep(1.0, 0.55, f)*1.5, 0.0, 1.0);
+        acc.rgb += (1.0 - acc.a)*col*al; acc.a += (1.0 - acc.a)*al;
+        if (acc.a > 0.985) break;
+      }
+    }
+    pos = np;
+  }
+  if (acc.a < 0.012) discard;
+  o = acc*vFade;
+}`;
+function program(vs, fs) {
+  const p = gl.createProgram();
+  for (const [t, src] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) {
+    const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+    gl.attachShader(p, s);
+  }
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const u = {}; for (let i = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); i--;) { const n = gl.getActiveUniform(p, i).name; u[n] = gl.getUniformLocation(p, n); }
+  return { p, u };
+}
+function attrib(buf, loc, size, type, normed, stride, offset, perInstance) {
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, type, normed, stride, offset);
+  if (perInstance) gl.vertexAttribDivisor(loc, 1);
+}
+const still = (data, usage = gl.STATIC_DRAW) => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, data, usage); return b; };
+// The lines of the constellation: thin strips whose corners are worked out on the CPU, already in the view's own
+// coordinates (there are seven lines at most). aP: x, y, and how strongly the line shows.
+const VS_LINE = `#version 300 es
+layout(location=0) in vec3 aP; out float vA;
+void main(){ vA = aP.z; gl_Position = vec4(aP.xy, 0.0, 1.0); }`;
+const FS_LINE = `#version 300 es
+precision highp float;
+in float vA; uniform vec3 uCol; out vec4 o;
+void main(){ o = vec4(uCol*vA, 1.0); }`;
+const lines = new Float32Array(64 * 18);
+let P_LINE, lineVao, bufLine;
+let P_STONE, P_GLOW, P_PT, P_PLANE, P_GROUND, P_HOLE, groundVao, quad, glowVao, planeVao, skyVao, bufGlow, bufPlane;
+const glows = new Float32Array((N_SYS + N_FAR + 90) * 12), planes = new Float32Array((N_SYS + N_FAR + 4) * 16);
+function initGL() {
+  P_STONE = program(VS, FS); P_GLOW = program(VS_GLOW, FS_GLOW); P_PT = program(VS_PT, FS_PT); P_PLANE = program(VS_PLANE, FS_PLANE); P_GROUND = program(VS_GROUND, FS_GROUND); P_HOLE = program(VS_HOLE, FS_HOLE); P_LINE = program(VS_LINE, FS_LINE);
+  lineVao = gl.createVertexArray(); gl.bindVertexArray(lineVao); bufLine = still(lines.byteLength, gl.DYNAMIC_DRAW); attrib(bufLine, 0, 3, gl.FLOAT, false, 0, 0, false);
+  groundVao = gl.createVertexArray();
+  quad = still(new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]));
+  glowVao = gl.createVertexArray(); gl.bindVertexArray(glowVao);
+  attrib(quad, 0, 2, gl.FLOAT, false, 0, 0, false); bufGlow = still(glows.byteLength, gl.DYNAMIC_DRAW);
+  for (let k = 0; k < 3; k++) attrib(bufGlow, 1 + k, 4, gl.FLOAT, false, 48, 16 * k, true);
+  planeVao = gl.createVertexArray(); gl.bindVertexArray(planeVao);
+  attrib(quad, 0, 2, gl.FLOAT, false, 0, 0, false); bufPlane = still(planes.byteLength, gl.DYNAMIC_DRAW);
+  for (let k = 0; k < 4; k++) attrib(bufPlane, 1 + k, 4, gl.FLOAT, false, 64, 16 * k, true);
+  // the stars beyond every cluster
+  const R = rng(9), SP = new Float32Array(SKY * 4), SK = new Uint8Array(SKY * 4);
+  for (let i = 0; i < SKY; i++) {
+    const z = R() * 2 - 1, a = R() * 6.283, s = Math.sqrt(1 - z * z), g = 0.35 + 0.5 * R() ** 2;
+    SP.set([s * Math.cos(a), z, s * Math.sin(a), 0.55 + 0.9 * R() ** 4], i * 4);
+    SK.set([byte(g), byte(g), byte(g * (0.92 + 0.16 * R())), byte(R())], i * 4);
+  }
+  skyVao = gl.createVertexArray(); gl.bindVertexArray(skyVao);
+  attrib(still(SP), 0, 4, gl.FLOAT, false, 0, 0, false); attrib(still(SK), 1, 4, gl.UNSIGNED_BYTE, true, 0, 0, false);
+  gl.bindVertexArray(null);
+}
+
+// ---- a cluster: 36 systems along two spiral arms, far stars along the same arms. The first cluster also has the cairn
+// at its centre.
+// Per stone: A = its band and place across it (-1: at the centre), angle at time 0, height off the plane, radius; K =
+// colour and a random byte; S = its system, how fast it circles, and what it is. A system's spheres come first in its
+// stretch of the arrays, and its gravel after them in no order, so that drawing only the first part of the stretch thins
+// every belt evenly.
+const arm = (rho, k) => k * Math.PI + 2.2 * Math.log(1 + rho / 90);
+function makeCluster(codes, scenes, num, phase, layout) {
+  const home = num === 0;
+  const RL = rng(layout), at = [];
+  for (let i = 0; i < N_SYS; i++) for (let k = 0; k < 300; k++) {
+    const rho = 70 + 500 * Math.pow((i + 0.6) / N_SYS, 0.85) * (0.85 + 0.3 * RL()), ang = phase + arm(rho, i % 2) + (RL() - 0.5) * 0.9;
+    const p = [Math.cos(ang) * rho, gauss(RL) * (8 + 0.05 * rho), Math.sin(ang) * rho];
+    if (k === 299 || at.every(q => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) > 60)) { at.push(p); break; }
+  }
+  const rhoOf = at.map(p => Math.hypot(p[0], p[2]));
+  const cap = N_SYS * (PER_SYS + 12) + 8, A = new Float32Array(cap * 4), K = new Uint8Array(cap * 4), S = new Float32Array(cap * 3), SYS = new Float32Array((N_SYS + 1) * 24);
+  const PA = new Float32Array(N_SYS * 40), PS = new Float32Array(N_SYS * 30); let np = 0;      // the spheres' own rows, kept for posOf after the rest has gone to the GPU
+  const kept = () => { PA.set(A.subarray(n * 4 - 4, n * 4), np * 4); PS.set(S.subarray(n * 3 - 3, n * 3), np * 3); return np++; };
+  const E = new Float32Array((N_SYS + 1) * EDGE_ROWS * EDGE_N);
+  let n = 0;
+  const put = (s, x, th, y, size, col, om, kind, seed) => {
+    let o = n * 4; A[o] = x; A[o + 1] = th; A[o + 2] = y; A[o + 3] = size; K[o] = byte(col[0]); K[o + 1] = byte(col[1]); K[o + 2] = byte(col[2]); K[o + 3] = byte(seed);
+    o = n * 3; S[o] = s; S[o + 1] = om; S[o + 2] = kind; return n++;
+  };
+  const sys = scenes.map((sc, i) => {
+    const code = codes[i], R = rng(hashStr(code)), nL = sc.layers.length, tr = sc.traits, folds = tr.Folds;
+    const centre = sc.eclipse ? 'eclipse' : sc.holes ? 'hole' : 'star', bodyR = centre === 'eclipse' ? 0.95 : centre === 'hole' ? 0.45 : 0;
+    const r0 = centre === 'star' ? 1.5 : 2.2, Rs = (6 + 0.45 * nL) * (folds === 'Aurora' ? 1.3 : 1), span = Rs - r0;
+    const nrm = norm([gauss(R) * 0.38, 1, gauss(R) * 0.38]), u = norm(cross(nrm, [0.3, 0.1, 1])), v = cross(nrm, u);
+    const dir = R() < 0.5 ? -1 : 1, ra = R(), side = R() < 0.5 ? -1 : 1;
+    // The shape, from the piece. The belts take the piece's own band edges, the piece rolled into a ring: once round the
+    // system is once down the piece and back up again, so the ring closes without a seam. A Rings piece is rings already,
+    // so its belts are circles, each a little off the centre where the piece draws its circles by hand. Bend lifts the
+    // plane into a saddle or into folds, a Whorl winds the edges into a spiral, a Fan tilts the belts further the further
+    // out they lie, a Cascade sets each belt a step above the last, and a Curtain's belts are thin walls that hang above
+    // and below the plane.
+    const tot = sc.share.reduce((a, b) => a + b, 0) || 1, cum = [0]; for (const x of sc.share) cum.push(cum[cum.length - 1] + x / tot);
+    const along = (k, x) => { const f = clamp(x, 0, 1) * (EDGE_IN - 1), a0 = Math.floor(f), a1 = Math.min(EDGE_IN - 1, a0 + 1); return sc.edge[k * EDGE_IN + a0] * (1 - (f - a0)) + sc.edge[k * EDGE_IN + a1] * (f - a0); };
+    const off = tr.Edge === 'Drawn circles' ? 0.07 + 0.05 * ra : 0, offAt = R() * 6.283;
+    for (let k = 0; k <= nL; k++) for (let a = 0; a < EDGE_N; a++) {
+      const turn = a / EDGE_N * 2, x = turn < 1 ? turn : 2 - turn;
+      E[(i * EDGE_ROWS + k) * EDGE_N + a] = folds === 'Rings' ? (r0 + span * cum[k]) * (1 + off * Math.cos(a / EDGE_N * 6.283 - offAt - k * 0.5))
+        : r0 + span * (along(k, x - 0.012) + 2 * along(k, x) + along(k, x + 0.012)) / 4;
+    }
+    const bend = { Still: 0.012, Sway: 0.05, Folded: 0.1 }[tr.Bend] ?? 0.03;
+    const warp = [bend * (folds === 'Curtain' || folds === 'Aurora' ? 1 : 0.6), tr.Bend === 'Folded' ? 3 : 2];
+    const swirl = tr.Whorl === 'Whorl' ? dir * 0.5 : 0, twist = tr.Composition === 'Fan' ? side * (0.3 + 0.3 * ra) : 0, terrace = tr.Composition === 'Cascade' ? side * span * 0.045 : 0;
+    SYS.set([...at[i], Rs, ...u, warp[0], ...v, warp[1], ...nrm, R() * 6.283, twist, swirl, 0, 0, 0, 0, 0, 0], i * 24);
+    const kep = r => dir * 0.05 * Math.pow(r / 1.5, -1.5);       // nearer the centre, faster round it
+    // how much gravel each band gets: its share of the picture, more where the piece prints it finer
+    const spMin = Math.min(...sc.layers.map(l => l.sp)), dens = sc.layers.map(l => (spMin / l.sp) ** 2);
+    const gs = { Fine: 0.8, Coarse: 1.3 }[tr.Gravel] || 1, cols = sc.layers.map(stoneCol);
+    const paper = sc.layers.map(l => lum(l.col) > 0.3), light = sc.layers.map(l => { const k = Math.min(1, 0.76 / Math.max(lum(l.col), 0.01)); return l.col.map(v => v * k); });
+    const wt = sc.share.map((x, j) => (x * Math.pow(dens[j], 0.7) + 0.03) * (paper[j] ? 1.8 : 1)), wSum = wt.reduce((a, b) => a + b, 0);
+    const pad = folds === 'Strata' ? 0.14 : folds === 'Aurora' ? 0.02 : 0.05;
+    const belts = sc.share.map((x, j) => ({ lo: r0 + span * cum[j], hi: r0 + span * cum[j + 1], wall: span * (0.07 + 0.15 * R()) }));     // (about where each belt lies: for the list's small pictures)
+    const stepOf = j => terrace * (j - (nL - 1) / 2), rOf = x => r0 + span * (cum[Math.floor(x)] + (x - Math.floor(x)) * (cum[Math.floor(x) + 1] - cum[Math.floor(x)]));
+    const first = n; let maxSize = bodyR;
+    if (centre === 'eclipse') put(i, -1, 0, 0, bodyR, sc.eclipse.col, 0, 2, R());
+    const planets = sc.stones.slice(0, 10).map(s => {            // the piece's spheres: further down the piece, further out
+      const f = clamp(s.y / sc.H, 0.04, 0.98), j = Math.max(0, cum.findIndex(c => c > f) - 1), x = j + clamp((f - cum[j]) / Math.max(cum[j + 1] - cum[j], 1e-4), 0.02, 0.98);
+      const size = clamp(s.r * 9, 0.12, s.giant ? 1.3 : 0.8); maxSize = Math.max(maxSize, size);
+      put(i, x, s.x * 6.283 + R() * 0.5, stepOf(j) + gauss(R) * 0.01 * rOf(x), size, s.col, kep(rOf(x)), 1, R()); return kept();
+    });
+    const special = n - first, mean = [0, 0, 0];
+    for (let k = 0; k < PER_SYS; k++) {
+      let w = R() * wSum, j = 0; while (j < nL - 1 && w > wt[j]) w -= wt[j++];
+      let q = pad + R() * (1 - 2 * pad);
+      if (folds === 'Rings') q = clamp((Math.floor(R() * 3) + 0.5) / 3 + gauss(R) * 0.03, 0.01, 0.99);          // three thin ringlets
+      if (folds === 'Curtain') q = 0.5 + (q - 0.5) * 0.3;                                                       // a thin wall
+      const x = j + q, r = rOf(x), size = Math.max(0.008, sc.layers[j].sp * 4.2 * gs * (0.4 + 1.5 * R() ** 4)), sh = 0.86 + 0.26 * R(), c = paper[j] && R() < 0.74 ? light[j] : cols[j];
+      if (size > maxSize) maxSize = size;
+      mean[0] += c[0]; mean[1] += c[1]; mean[2] += c[2];
+      put(i, x, R() * 6.283, stepOf(j) + (folds === 'Curtain' ? (R() - 0.5) * belts[j].wall : gauss(R) * (folds === 'Aurora' ? 0.03 : 0.012) * r), size, [c[0] * sh, c[1] * sh, c[2] * sh], kep(r), 0, R());
+    }
+    return { i, code, sc, at: at[i], nrm, Rs, first, special, count: PER_SYS, planets, belts, cols, mean: mean.map(c => c / PER_SYS), rho: rhoOf[i], centre, bodyR, maxSize, seed: R() * 6.283,
+      // a black hole's disc: pale near the hole, and toward its rim the strongest of the piece's own inks, warmed
+      disc: centre === 'hole' ? [mixc(sc.glint, [1, 0.88, 0.7], 0.55), mixc(cols.reduce((a, c) => Math.max(...c) - Math.min(...c) > Math.max(...a) - Math.min(...a) ? c : a), [0.92, 0.36, 0.15], 0.5)] : null };
+  });
+  // the cairn: a pile of pale stones at the centre. Its "bands" are one unit wide each, so a stone's A.x is its distance
+  // from the middle.
+  let cairn = null;
+  if (home) {
+    SYS.set([0, 0, 0, 2, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], N_SYS * 24);
+    for (let k = 0; k < EDGE_ROWS; k++) E.fill(k, (N_SYS * EDGE_ROWS + k) * EDGE_N, (N_SYS * EDGE_ROWS + k + 1) * EDGE_N);
+    const RC = rng(4), first = n;
+    for (const [r, th, y, size] of [[0.42, 0.4, 0.3, 0.44], [0.42, 2.6, 0.28, 0.42], [0.4, 4.6, 0.3, 0.4], [0.2, 1.3, 0.82, 0.33], [0.2, 4.3, 0.84, 0.31], [0.03, 0, 1.3, 0.25], [0.02, 2, 1.62, 0.16]]) {
+      const sh = 0.88 + 0.24 * RC(); put(N_SYS, r, th, y, size, CAIRN_STONE.map(c => c * sh), 0, 0, RC());
+    }
+    cairn = { first, count: n - first };
+  }
+  // far stars inside the cluster: most along the arms, some round the centre, some anywhere in the disc
+  const RF = rng(layout + 9), FP = new Float32Array(FIELD * 4), FK = new Uint8Array(FIELD * 4);
+  for (let i = 0; i < FIELD; i++) {
+    const kind = RF(); let rho, ang;
+    if (kind < 0.58) { rho = 40 + 760 * Math.pow(RF(), 0.8); ang = phase + arm(rho, i % 2) + gauss(RF) * 0.3; }
+    else if (kind < 0.8) { rho = Math.abs(gauss(RF)) * 110 + 8; ang = RF() * 6.283; }
+    else { rho = 950 * Math.sqrt(RF()); ang = RF() * 6.283; }
+    FP.set([Math.cos(ang) * rho, gauss(RF) * (14 + 0.07 * rho), Math.sin(ang) * rho, 0.12 + 0.5 * RF() ** 3], i * 4);
+    const tint = mixc([0.82, 0.82, 0.85], sys[Math.floor(RF() * N_SYS)].mean, 0.45 * RF());
+    FK.set([byte(tint[0]), byte(tint[1]), byte(tint[2]), byte(RF())], i * 4);
+  }
+  // to the GPU: one set of buffers for the cluster, and for each system a view of its own stretch of them
+  const bufs = [still(A.subarray(0, n * 4)), still(K.subarray(0, n * 4)), still(S.subarray(0, n * 3)), still(FP), still(FK)], vaos = [];
+  const stretch = first => {
+    const vao = gl.createVertexArray(); gl.bindVertexArray(vao); vaos.push(vao);
+    attrib(quad, 0, 2, gl.FLOAT, false, 0, 0, false); attrib(bufs[0], 1, 4, gl.FLOAT, false, 0, first * 16, true);
+    attrib(bufs[1], 2, 4, gl.UNSIGNED_BYTE, true, 0, first * 4, true); attrib(bufs[2], 3, 3, gl.FLOAT, false, 0, first * 12, true);
+    return vao;
+  };
+  for (const s of sys) s.vao = stretch(s.first);
+  if (cairn) cairn.vao = stretch(cairn.first);
+  const fieldVao = gl.createVertexArray(); gl.bindVertexArray(fieldVao); vaos.push(fieldVao);
+  attrib(bufs[3], 0, 4, gl.FLOAT, false, 0, 0, false); attrib(bufs[4], 1, 4, gl.UNSIGNED_BYTE, true, 0, 0, false);
+  gl.bindVertexArray(null);
+  const table = (fmt, w, h, kind, data) => { const tx = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tx); gl.texImage2D(gl.TEXTURE_2D, 0, fmt, w, h, 0, kind, gl.FLOAT, data);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); return tx; };
+  return { n: num, home, phase, sys, SYS, E, PA, PS, bufs, vaos, fieldVao, sysTex: table(gl.RGBA32F, 6, N_SYS + 1, gl.RGBA, SYS), edgeTex: table(gl.R32F, EDGE_N, (N_SYS + 1) * EDGE_ROWS, gl.RED, E), cairn };
+}
+function dispose(cl) { for (const b of cl.bufs) gl.deleteBuffer(b); for (const v of cl.vaos) gl.deleteVertexArray(v); gl.deleteTexture(cl.sysTex); gl.deleteTexture(cl.edgeTex); }
+// where sphere idx of a cluster is now (the same sum the vertex shader does)
+function posOf(cl, idx) {
+  const { PA: A, PS: S, SYS, E } = cl, si = S[idx * 3], o = si * 24, x = A[idx * 4], th = A[idx * 4 + 1] + S[idx * 3 + 1] * t;
+  let rr = 0;
+  if (x >= 0) {
+    const j = Math.floor(x), turn = (th + SYS[o + 17] * x) / 6.2832, fa = (turn - Math.floor(turn)) * EDGE_N, a0 = Math.floor(fa) & (EDGE_N - 1), a1 = (a0 + 1) & (EDGE_N - 1), k = fa - Math.floor(fa), row = (si * EDGE_ROWS + j) * EDGE_N;
+    const lo = E[row + a0] * (1 - k) + E[row + a1] * k, hi = E[row + EDGE_N + a0] * (1 - k) + E[row + EDGE_N + a1] * k; rr = lo + (hi - lo) * (x - j);
+  }
+  const y = A[idx * 4 + 2] + SYS[o + 7] * rr * Math.sin(SYS[o + 11] * th + SYS[o + 15]), tilt = SYS[o + 16] * rr / SYS[o + 3];
+  const lx = rr * Math.cos(th), z0 = rr * Math.sin(th), lz = z0 * Math.cos(tilt) - y * Math.sin(tilt), ly = z0 * Math.sin(tilt) + y * Math.cos(tilt);
+  return [SYS[o] + SYS[o + 4] * lx + SYS[o + 8] * lz + SYS[o + 12] * ly, SYS[o + 1] + SYS[o + 5] * lx + SYS[o + 9] * lz + SYS[o + 13] * ly, SYS[o + 2] + SYS[o + 6] * lx + SYS[o + 10] * lz + SYS[o + 14] * ly];
+}
+// Every cluster has a number, and its number gives it its place on the map (they lie on a spiral, the cairn's in the
+// middle), the way its arms wind, and its 36 seeds. So a cluster is the same for everyone and on every visit.
+const clusterAt = n => { const a = n * 2.39996, r = 5500 * Math.sqrt(n); return [Math.cos(a) * r, (rng(7000 + n)() - 0.5) * 2600, Math.sin(a) * r]; };
+const clusterPhase = n => n === 0 ? 0 : rng(8000 + n)() * 6.283;
+const clusterCodes = n => n === 0 ? CODES : codesFrom(rng(20261115 + n * 7919), null);
+const clusterName = n => n === 0 ? 'the cairn\'s cluster' : `cluster ${n}`;
+// Cluster `to` as it is seen from cluster `from`: in its true direction, drawn no nearer than 8,500 and no farther than 12,500.
+function farOf(from, to) {
+  const a = clusterAt(from), p = clusterAt(to).map((v, i) => v - a[i]), d = Math.hypot(...p), k = clamp(d, 8500, 12500) / d;
+  return { n: to, pos: p.map(v => v * k), phase: clusterPhase(to), home: to === 0 };
+}
+// The other clusters in sight from cluster n: the seven nearest, the cairn's wherever it is, and the one you came from.
+function makeFars(n, from) {
+  const here = clusterAt(n), all = [];
+  for (let m = 0; m < N_CLUSTERS; m++) if (m !== n) all.push({ m, d: Math.hypot(...clusterAt(m).map((v, i) => v - here[i])) });
+  const out = all.sort((a, b) => a.d - b.d).slice(0, N_FAR).map(q => farOf(n, q.m));
+  if (n !== 0 && !out.some(f => f.home)) out.push(farOf(n, 0));
+  if (from) { const j = out.findIndex(f => f.n === from.n); if (j >= 0) out[j] = from; else out.push(from); }
+  return out;
+}
+
+// ---- constellations. Yours: the cluster it is in, the systems linked so far (by seed), its name and the address, kept
+// in this browser. Other people's: shared, a list for each cluster, to be filled from a server once there is one (until
+// then every cluster is empty but for yours). A cluster holds FIG_CAP constellations at most, so its systems stay legible.
+const KEY = 'vigil-realms-3', FIG_MIN = 3, FIG_MAX = 7, FIG_CAP = 8;
+const shared = new Map();
+let fig = { cluster: 0, codes: [], name: '', addr: '' }, drawing = false;
+try {
+  const g = JSON.parse(localStorage.getItem(KEY));
+  if (g && Array.isArray(g.codes) && g.cluster >= 0 && g.cluster < N_CLUSTERS) {
+    const all = clusterCodes(g.cluster | 0), codes = g.codes.filter(c => all.includes(c)).slice(0, FIG_MAX);
+    if (codes.length >= FIG_MIN) fig = { cluster: g.cluster | 0, codes, name: String(g.name || '').slice(0, 28), addr: String(g.addr || '') };
+  }
+} catch {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(fig)); } catch {} };
+const sysOf = codes => codes.map(c => C.sys.find(s => s.code === c)).filter(Boolean);
+const midOf = q => q.length ? [0, 1, 2].map(k => q.reduce((a, s) => a + s.at[k], 0) / q.length) : [0, 1, 0];
+const figSys = () => fig.cluster === C.n ? sysOf(fig.codes) : [];      // your figure's systems, if it is in the cluster you are in
+const othersHere = () => shared.get(C.n) || [];
+// ---- the wallet and the server. Nothing is asked of either until the visitor clicks connect or leaves a constellation,
+// except the constellations of the cluster you arrive in and how full each cluster is, which are fetched once on arrival.
+let wallet = '', counts = {};
+const shortAddr = a => a.length > 20 ? a.slice(0, 6) + '…' + a.slice(-4) : a;
+const ask = (path, init) => fetch(API + path, init).then(async r => ({ ok: r.ok, body: await r.json().catch(() => ({})) }), () => ({ ok: false, body: {} }));
+async function connect() {
+  const eth = window.ethereum;
+  if (!eth) { toast('No wallet was found in this browser.'); return ''; }
+  try { const [a] = await eth.request({ method: 'eth_requestAccounts' }); wallet = String(a || '').toLowerCase(); } catch { return ''; }
+  $('conn').textContent = wallet ? shortAddr(wallet) : 'connect';
+  if (API && wallet) {                                 // the constellation this address left earlier, from another browser perhaps
+    const { ok, body } = await ask('/me?addr=' + wallet);
+    if (ok && body.fig && !drawing && (fig.addr !== wallet || fig.codes.join() !== body.fig.codes.join() || fig.cluster !== body.fig.cluster)) { fig = { ...body.fig, addr: wallet }; save(); arrive(); }
+  }
+  renderFig(); return wallet;
+}
+// on arriving in a cluster: the constellations other people left there, and how full every cluster is
+async function arrive() {
+  makeLabels(); renderFig(); wake();
+  if (!API) return;
+  const n = C.n, [here, all] = await Promise.all([ask('/clusters/' + n), ask('/clusters')]);
+  if (here.ok) shared.set(n, (here.body.figs || []).filter(f => !(fig.cluster === n && fig.addr && f.by === shortAddr(fig.addr))));
+  if (all.ok) counts = all.body.counts || {};
+  makeLabels(); renderFig(); wake();
+}
+// leave the constellation with the server: the wallet signs a text that names it, and the server checks the signature
+async function leave(name, err) {
+  const a = wallet || await connect();
+  if (!a) { err.textContent = 'Connect a wallet to sign the constellation.'; return; }
+  const time = new Date().toISOString(), text = `Vigil constellation\nName: ${name}\nCluster: ${fig.cluster}\nSystems: ${fig.codes.join(', ')}\nAddress: ${a}\nTime: ${time}`;
+  let sig;
+  try { sig = await window.ethereum.request({ method: 'personal_sign', params: ['0x' + [...new TextEncoder().encode(text)].map(b => b.toString(16).padStart(2, '0')).join(''), a] }); }
+  catch { err.textContent = 'The constellation was not signed.'; return; }
+  const { ok, body } = await ask('/constellation', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cluster: fig.cluster, codes: fig.codes, name, addr: a, time, sig }) });
+  if (!ok) { err.textContent = body.error || 'The server could not be reached. Try again.'; return; }
+  fig.name = name; fig.addr = a; save(); arrive();
+}
+function startDrawing() {
+  if (jumping || othersHere().length >= FIG_CAP) return;
+  fig = { cluster: C.n, codes: [], name: '', addr: fig.addr }; drawing = true; save(); makeLabels(); showView('fig'); openPanel(true); renderFig(); go({ k: 'cairn' }, MAP * 0.8);
+}
+// a click on a system while drawing: add it to the figure, or take it off again if it is the last one
+function link(i) {
+  const code = C.sys[i].code, at = fig.codes.indexOf(code);
+  if (at >= 0 && at === fig.codes.length - 1) fig.codes.pop();
+  else if (at >= 0) toast(`${code} is already part of the figure. Click the last system to take it off.`);
+  else if (fig.codes.length >= FIG_MAX) toast(`A constellation has at most ${FIG_MAX} systems.`);
+  else fig.codes.push(code);
+  save(); renderFig(); wake();
+}
+function reset() { fig = { cluster: 0, codes: [], name: '', addr: '' }; drawing = false; save(); makeLabels(); renderFig(); wake(); }
+function openFig() { if (jumping) return; showView('fig'); openPanel(true); renderFig(); }
+// the view that holds the whole figure, travelling to its cluster first
+function showFig() {
+  if (jumping || drawing || fig.codes.length < FIG_MIN) return;
+  travelTo(fig.cluster, () => { const q = figSys(), m = midOf(q); openFig(); go({ k: 'point', p: m }, Math.max(60, 2.3 * Math.max(...q.map(s => Math.hypot(s.at[0] - m[0], s.at[1] - m[1], s.at[2] - m[2]))))); });
+}
+// A picture of the map as it is now, with the constellation's name and its systems' seeds written on it, to keep or post.
+function savePicture() {
+  draw();
+  const c = document.createElement('canvas'), k = canvas.width / stageW; c.width = canvas.width; c.height = canvas.height;
+  const x = c.getContext('2d'); x.drawImage(canvas, 0, 0);
+  x.textBaseline = 'middle'; x.shadowColor = '#000'; x.shadowBlur = 6 * k;
+  for (const s of figSys()) { const p = toScreen(s.at); if (p.z > 0) { x.font = `${11 * k}px ui-monospace, Menlo, monospace`; x.fillStyle = 'rgba(233, 225, 213, .85)'; x.fillText(s.code, (p.x + 12) * k, p.y * k); } }
+  x.font = `600 ${17 * k}px ui-monospace, Menlo, monospace`; x.fillStyle = '#e0655c'; x.fillText(fig.name, 22 * k, c.height - 46 * k);
+  x.font = `${11 * k}px ui-monospace, Menlo, monospace`; x.fillStyle = 'rgba(233, 225, 213, .8)'; x.fillText('A constellation in Vigil, by 0010', 22 * k, c.height - 24 * k);
+  c.toBlob(b => { if (!b) return; const a = el('a', { href: URL.createObjectURL(b), download: `vigil-${fig.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'constellation'}.png` }); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }, 'image/png');
+}
+
+// ---- where you are: looking at a point from dist away, from the side given by yaw and pitch. The point is whatever you
+// travelled to last (follow), and keeps up with it as it circles its centre.
+const cam = { T: [0, 1, 0], dist: 420, yaw: 0.5, pitch: 0.42 }, aim = { dist: HOME, yaw: 0.5, pitch: 0.42 };
+const view = { pos: [0, 0, 0], right: [1, 0, 0], up: [0, 1, 0], fwd: [0, 0, -1], rot: new Float32Array(9) };
+let C = null, HOMEC = null, fars = [], fade = 1, jumping = false;
+let offX = 0, offAim = 0, follow = { k: 'cairn' }, travel = null, lastInput = 0, raf = 0, last = 0, t = 0, ready = false, stageW = 1, stageH = 1, sel = -1, hover = null;
+// What the view looks at. 'pin' is what a scroll leaves behind: the point P of the map that was under the pointer stays
+// under it while the distance changes, which it does when the looked-at point is P + v * distance.
+const targetOf = f => f.k === 'sys' ? C.sys[f.i].at : f.k === 'obj' ? posOf(C, f.idx) : f.k === 'point' ? f.p : f.k === 'pin' ? f.P.map((x, i) => x + f.v[i] * cam.dist) : [0, 1, 0];
+function updateView() {
+  const cp = Math.cos(cam.pitch), back = [Math.sin(cam.yaw) * cp, Math.sin(cam.pitch), Math.cos(cam.yaw) * cp];
+  view.pos = cam.T.map((v, i) => v + back[i] * cam.dist);
+  const f = back.map(v => -v), r = norm([-f[2], 0, f[0]]), u = cross(r, f);
+  view.fwd = f; view.right = r; view.up = u;
+  view.rot.set([r[0], u[0], f[0], r[1], u[1], f[1], r[2], u[2], f[2]]);
+}
+function go(f, dist, done, jump) {
+  if (jumping && !jump) return;
+  const to = targetOf(f), L = Math.hypot(...to.map((v, i) => v - cam.T[i])), d0 = cam.dist, d1 = clamp(dist, MIN_DIST, MAX_DIST);
+  follow = f;
+  travel = { from: cam.T.slice(), l0: Math.log(d0), l1: Math.log(d1), t0: performance.now(), done, jump,
+    dur: jump ? (CALM ? 1.6 : 6) : CALM ? 0.35 : clamp(1.2 + 0.5 * Math.log(1 + L / Math.max(d0, d1)), 1.2, 4.2),
+    bump: Math.max(0, Math.log(0.55 * L / Math.sqrt(d0 * d1))) };       // on a long trip, pull back far enough to see both ends
+  wake();
+}
+// Travelling to another cluster. Its seeds are read and its systems built before leaving. Half way there, with both
+// clusters small, the map changes hands: this cluster dims into the far picture of itself, everything is counted from the
+// new cluster's centre from then on, and the new cluster brightens out of its far picture.
+async function jump(j, then) {
+  const F = fars[j];
+  if (jumping || !ready || !F) return;
+  jumping = true; showView('list'); hover = null; canvas.classList.remove('over');
+  try {
+    let next = HOMEC;
+    if (!F.home) { $('where').textContent = `Reading the ${N_SYS} seeds of cluster ${F.n}…`; const codes = clusterCodes(F.n); next = makeCluster(codes, await readScenes(codes), F.n, F.phase, 5000 + F.n); }
+    go({ k: 'point', p: F.pos.slice() }, MAP, () => { fade = 1; jumping = false; aim.dist = MAP; if (then) then(); }, { next, P: F.pos.slice(), swapped: false });
+  } catch (e) { jumping = false; toast(String(e && e.message || e)); }
+}
+// travel to cluster n, whether or not it is in sight, and then do something there
+function travelTo(n, then) {
+  if (C.n === n) return then && then();
+  let j = fars.findIndex(f => f.n === n);
+  if (j < 0) { fars.push(farOf(C.n, n)); j = fars.length - 1; makeLabels(); }
+  jump(j, then);
+}
+function jumpStep(e) {
+  const J = travel.jump;
+  if (!J.swapped && e < 0.5) { fade = 1 - smooth(0.34, 0.5, e); return; }
+  if (!J.swapped) {
+    J.swapped = true;
+    const old = C, P = J.P;
+    travel.from = travel.from.map((v, i) => v - P[i]); follow = { k: 'cairn' };
+    if (!old.home) dispose(old);
+    C = J.next; fars = makeFars(C.n, { n: old.n, pos: P.map(v => -v), phase: old.phase, home: old.home }); sel = -1; arrive();
+    if (drawing) { drawing = false; fig.codes = []; save(); }           // a figure belongs to one cluster: leaving it stops the drawing
+    makeLabels(); renderList(); renderFig();
+  }
+  fade = smooth(0.5, 0.66, e);
+}
+const atHome = then => travelTo(0, then);     // do something that belongs to the cairn's cluster, going there first
+function rayAt(cx, cy) {
+  const ty = Math.tan(FOV / 2), tx = ty * stageW / stageH, x = (cx / stageW * 2 - 1 - offX) * tx, y = (1 - cy / stageH * 2) * ty;
+  return norm(view.fwd.map((v, i) => v + view.right[i] * x + view.up[i] * y));
+}
+const sizeOnScreen = s => s.Rs * (stageH / 2 / Math.tan(FOV / 2)) / Math.hypot(s.at[0] - view.pos[0], s.at[1] - view.pos[1], s.at[2] - view.pos[2]);
+// What is under the pointer. A name on the map counts as the thing it names. Then a stone of the cairn's, then a planet or
+// the centre of a system seen close, then a system (anywhere on it when it is seen close), the cairn or another cluster.
+// Among equals, the one nearest you. Single belt stones are not for clicking.
+function pick(cx, cy) {
+  for (const l of labelShown) if (cx >= l.x + 3 && cx <= l.x + 15 + l.w && cy >= l.y - 13 && cy <= l.y + 13) return l.hit;
+  const o = view.pos, d = rayAt(cx, cy), ppu = stageH / 2 / Math.tan(FOV / 2);
+  let best = null;
+  const test = (p, r, minPx, cls, hit) => {
+    const wx = p[0] - o[0], wy = p[1] - o[1], wz = p[2] - o[2], tt = wx * d[0] + wy * d[1] + wz * d[2];
+    if (tt < 0.01) return;
+    const tol = Math.max(r, tt * minPx / ppu), miss = (wx * wx + wy * wy + wz * wz - tt * tt) / (tol * tol);
+    if (miss > 1) return;
+    // of two things of a kind the nearer one wins, except far systems, where the one nearer the pointer does
+    if (!best || cls < best.cls || (cls === best.cls && (cls === 2 ? miss < best.miss : tt < best.tt))) best = { cls, tt, miss, ...hit };
+  };
+  if (C.home) {
+    test([0, 1, 0], 1.5, 14, 2, { k: 'cairn' });
+  }
+  for (const s of C.sys) {
+    if (sizeOnScreen(s) < 110) { test(s.at, s.Rs * 0.75, 16, 2, { k: 'sys', i: s.i }); continue; }
+    test(s.at, Math.max(0.9, s.bodyR), 10, 1, { k: 'sys', i: s.i });
+    for (const idx of s.planets) test(posOf(C, idx), C.PA[idx * 4 + 3] * 1.15, 8, 1, { k: 'obj', idx });
+    const dn = dot(d, s.nrm);                                    // anywhere on its plane, within its belts
+    if (Math.abs(dn) > 1e-4) { const tt = ((s.at[0] - o[0]) * s.nrm[0] + (s.at[1] - o[1]) * s.nrm[1] + (s.at[2] - o[2]) * s.nrm[2]) / dn;
+      if (tt > 0 && Math.hypot(o[0] + d[0] * tt - s.at[0], o[1] + d[1] * tt - s.at[1], o[2] + d[2] * tt - s.at[2]) < s.Rs && (!best || best.cls > 3)) best = { cls: 3, tt, k: 'sys', i: s.i }; }
+  }
+  if (cam.dist > 1200) fars.forEach((f, j) => test(f.pos, 620, 26, 2, { k: 'far', j }));
+  return best;
+}
+function clickAt(cx, cy) {
+  if (jumping) return;
+  const hit = pick(cx, cy);
+  if (drawing) { const i = !hit ? -1 : hit.k === 'sys' ? hit.i : hit.k === 'obj' ? C.PS[hit.idx * 3] : -1; if (i >= 0) link(i); return; }   // while drawing, a click links
+  if (!hit) { if (sel >= 0 || follow.k !== 'cairn' || $('v-list').hidden) homeView(); return; }   // empty space: let go, back to the opening view
+  if (hit.k === 'cairn') openCairn();
+  else if (hit.k === 'fig') openFig();
+  else if (hit.k === 'sys') openSys(hit.i, true);
+  else if (hit.k === 'far') jump(hit.j);
+  else { openSys(C.PS[hit.idx * 3], false); go({ k: 'obj', idx: hit.idx }, Math.max(0.8, C.PA[hit.idx * 4 + 3] * 5)); }
+}
+
+// ---- the panels
+let pieceFor = null;
+function showView(name) { for (const v of ['list', 'sys', 'cairn', 'fig', 'mint']) $('v-' + v).hidden = v !== name; if (name !== 'sys') sel = -1; syncPiece(); }
+function openPanel(yes) { $('panel').hidden = !yes; $('openPanel').hidden = yes; setOff(); syncPiece(); wake(); }
+// The panel floats over the map's right side, so while it shows, the middle of the view (where what you travel to comes
+// to rest) is the middle of the map that is left: offX shifts the whole picture left by half the panel's width, in the
+// view's own units (the stage is 2 wide).
+function setOff() { offAim = $('panel').hidden ? 0 : -($('panel').offsetWidth + 14) / stageW; }
+// The piece itself, moving, in the panel of the system that is drawn from it. It runs only while that panel shows.
+function syncPiece() {
+  const want = C && !$('panel').hidden && !$('v-sys').hidden && sel >= 0 ? C.sys[sel] : null;
+  if (want === pieceFor) return;
+  pieceFor = want; $('pieceBox').replaceChildren();
+  if (!want) return;
+  const f = document.createElement('iframe'), q = `embed=1&pad=0&seed=${encodeURIComponent(want.code)}`;
+  f.title = `The piece ${want.code}`; f.style.aspectRatio = `1 / ${want.sc.H}`;
+  if (PIECE_HTML) f.srcdoc = pieceSrcdoc(q); else f.src = `${PIECE}?${q}`;
+  $('pieceBox').append(f);
+}
+function openSys(i, fly) {
+  if (jumping) return;
+  const s = C.sys[i], tr = s.sc.traits;
+  sel = i;
+  $('sysCode').textContent = s.code;
+  $('sysSub').textContent = [tr.Palette, tr.Folds, tr.Edge, tr.Rare !== 'none' ? tr.Rare : ''].filter(Boolean).join(' · ');
+  $('traits').replaceChildren(...Object.entries(tr).filter(([, v]) => v !== 'none').flatMap(([k, v]) => { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = k; dd.textContent = v; return [dt, dd]; }));
+  showView('sys'); openPanel(true);
+  if (fly) go({ k: 'sys', i }, s.Rs * 2.1);
+}
+function openCairn() { if (jumping || drawing) return; atHome(() => { showView('cairn'); openPanel(true); go({ k: 'cairn' }, 7); }); }
+function toMap() { if (jumping) return; showView('list'); go({ k: 'cairn' }, MAP); }
+function toFar() { if (jumping) return; showView('list'); go({ k: 'cairn' }, FAR_VIEW); }
+function homeView() { if (jumping) return; showView('list'); go({ k: 'cairn' }, HOME); }
+function el(tag, props, ...kids) { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; }
+// The constellation's panel and the menu, from where your constellation stands: not begun, being drawn, drawn and waiting
+// for a name and an address, or left in its cluster (this one or another).
+function renderFig() {
+  const n = fig.codes.length, box = $('figDo'), here = fig.cluster === C.n, has = n >= FIG_MIN && !drawing, left = has && !!fig.name && !!fig.addr, others = othersHere();
+  $('count').textContent = drawing ? `${n} of ${FIG_MIN} to ${FIG_MAX}` : left ? 'done' : '';
+  $('carry').textContent = drawing ? `Drawing a constellation: ${n} ${n === 1 ? 'system' : 'systems'} linked. Click a system to link it.` : '';
+  $('navFig').hidden = !left; $('figName').textContent = fig.name;
+  const list = () => el('ol', { className: 'fig' }, ...fig.codes.map(c => el('li', {}, c)));
+  const room = others.length >= FIG_CAP ? el('p', { className: 'dim' }, `This cluster already holds ${FIG_CAP} constellations, which is as many as a cluster keeps. The other clusters come into sight when you zoom all the way out.`)
+    : el('button', { type: 'button', className: has ? 'link' : 'btn', onclick: startDrawing }, has ? (here ? 'Draw it again' : `Draw a new one here, in ${clusterName(C.n)}`) : `Draw a constellation in ${clusterName(C.n)}`);
+  const kept = others.length ? [el('p', { className: 'dim' }, `${others.length} of ${FIG_CAP} constellations are kept in this cluster. Point at a system to see the ones it belongs to.`)] : [];
+  if (drawing) box.replaceChildren(
+    el('p', {}, `Click a system on the map to add it to the figure, and click the last one again to take it off. The figure needs at least ${FIG_MIN} systems and can have ${FIG_MAX}. You can still drag and scroll to look around.`),
+    n ? list() : el('p', { className: 'dim' }, 'No system is linked yet.'),
+    el('div', { className: 'row' },
+      el('button', { type: 'button', className: 'btn', disabled: n < FIG_MIN, onclick: () => { drawing = false; makeLabels(); renderFig(); showFig(); } }, 'Done'),
+      el('button', { type: 'button', className: 'btn', disabled: !n, onclick: () => { fig.codes.pop(); save(); renderFig(); wake(); } }, 'Take the last one off'),
+      el('button', { type: 'button', className: 'btn', onclick: () => { drawing = false; fig.codes = []; save(); renderFig(); wake(); } }, 'Stop')));
+  else if (!has) box.replaceChildren(room, ...kept);
+  else if (left) box.replaceChildren(
+    el('p', {}, API ? `Your constellation ${fig.name} links ${n} systems in ${clusterName(fig.cluster)}, and the address ${shortAddr(fig.addr)} is on the allowlist with it.`
+      : `Your constellation ${fig.name} links ${n} systems in ${clusterName(fig.cluster)}, and the address ${shortAddr(fig.addr)} is noted with it in this browser. This page has no server yet, so neither has been sent anywhere.`),
+    list(),
+    el('div', { className: 'row' }, el('button', { type: 'button', className: 'btn', onclick: showFig }, here ? 'Show it' : `Travel to it`), ...(here ? [el('button', { type: 'button', className: 'btn', onclick: savePicture }, 'Save a picture')] : [])),
+    el('div', { className: 'row' }, el('button', { type: 'button', className: 'link', onclick: () => { fig.addr = ''; save(); makeLabels(); renderFig(); } }, API ? 'Change the name' : 'Change the name or the address'), room), ...kept);
+  else if (!box.querySelector('form')) {
+    const name = el('input', { id: 'figNameIn', type: 'text', maxLength: 28, value: fig.name, placeholder: 'The Lantern', autocomplete: 'off', spellcheck: false });
+    const input = el('input', { id: 'addr', type: 'text', value: fig.addr, placeholder: '0x… or name.eth', autocomplete: 'off', spellcheck: false }), err = el('div', { className: 'err', role: 'alert' });
+    const go = el('button', { type: 'submit', className: 'btn' }, API ? 'Sign and add to the allowlist' : 'Add to the allowlist');
+    box.replaceChildren(el('p', {}, API ? `The figure links ${n} systems in ${clusterName(fig.cluster)}. Give it a name and sign it with your wallet to add your address to the allowlist. Signing costs nothing and sends no transaction.`
+        : `The figure links ${n} systems in ${clusterName(fig.cluster)}. Give it a name and add an address to the allowlist for the mint.`), list(),
+      el('form', { onsubmit: async e => {
+        e.preventDefault(); const nm = name.value.trim().replace(/\s+/g, ' '), v = input.value.trim(); err.textContent = '';
+        if (nm.length < 2 || /[<>]/.test(nm)) { err.textContent = 'Give the constellation a name of at least two characters, without angle brackets.'; return; }
+        if (API) { go.disabled = true; await leave(nm, err); go.disabled = false; return; }
+        if (!/^0x[0-9a-fA-F]{40}$/.test(v) && !/^([a-z0-9-]+\.)+eth$/i.test(v)) { err.textContent = 'Enter an address that starts with 0x and has 40 more characters, or a name that ends in .eth.'; return; }
+        fig.name = nm; fig.addr = v; save(); makeLabels(); renderFig(); wake();
+      } }, el('label', { htmlFor: 'figNameIn' }, 'Name of the constellation'), name, ...(API ? [] : [el('label', { htmlFor: 'addr' }, 'Ethereum address or ENS name'), input]), err, go),
+      room);
+  }
+}
+// a system's belts as a small picture: its centre, then a ring for each belt in the belt's colour
+function swatch(s) {
+  const r0 = s.belts[0].lo, mid = s.centre === 'star' ? `${css(s.sc.glint)} 0 7%, #000 7% 16%` : s.centre === 'eclipse' ? `#000 0 8%, ${css(s.sc.eclipse.corona)} 8% 11%, #000 11% 16%` : `#000 0 9%, ${css(s.sc.glint)} 9% 10.5%, #000 10.5% 16%`;
+  const stops = [mid];
+  s.belts.forEach((b, j) => { const a = 16 + 84 * (b.lo - r0) / (s.Rs - r0), z = 16 + 84 * (b.hi - r0) / (s.Rs - r0); stops.push(`${css(s.cols[j].map(c => c * 0.85))} ${a.toFixed(1)}% ${z.toFixed(1)}%`, `#000 ${z.toFixed(1)}% ${(z + 1.5).toFixed(1)}%`); });
+  return `radial-gradient(circle closest-side, ${stops.join(', ')}, #000 100%)`;
+}
+function renderList() {
+  $('nSys').textContent = `(${N_SYS})`; $('filter').value = '';
+  $('whichCluster').textContent = `in ${clusterName(C.n)}`;
+  $('rows').replaceChildren(...[...C.sys].sort((a, b) => a.rho - b.rho).map(s => {
+    const tr = s.sc.traits, sub = [tr.Palette, tr.Folds, s.centre === 'eclipse' ? 'Eclipse' : s.centre === 'hole' ? 'Black hole' : '', tr.Rare !== 'none' ? tr.Rare : ''].filter(Boolean).join(' · ');
+    const row = el('button', { type: 'button', onclick: () => openSys(s.i, true) }, el('div', { className: 'sw' }), el('span', {}, s.code, el('small', {}, sub)));
+    row.firstChild.style.background = swatch(s); row.dataset.find = `${s.code} ${sub}`.toLowerCase();
+    return row;
+  }));
+}
+let toastTimer = 0;
+function toast(text) { $('toast').textContent = text; $('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').hidden = true, 5200); }
+
+// ---- names on the map: each system's seed beside it, the cairn's beside the cairn, and one beside every other cluster.
+// A name can be clicked like the thing it names (pick looks through labelShown).
+let labels = [], labelShown = [], labelKey = '';
+function makeLabels() {
+  labels = C.sys.map(s => ({ e: el('div', {}, s.code), s, hit: { k: 'sys', i: s.i } }));
+  if (C.home) labels.push({ e: el('div', {}, 'cairn'), hit: { k: 'cairn' } });
+  if (fig.name && !drawing && figSys().length >= FIG_MIN) labels.push({ e: el('div', {}, fig.name), fig: midOf(figSys()), mine: true, hit: { k: 'fig' } });   // your constellation's name, in its middle
+  for (const f of othersHere()) { const q = sysOf(f.codes); labels.push({ e: el('div', {}, f.name), fig: midOf(q), of: q, hit: { k: 'fig' } }); }       // other people's: shown while you point at one of their systems
+  fars.forEach((f, j) => labels.push({ e: el('div', {}, clusterName(f.n) + (counts[f.n] ? ` · ${counts[f.n]} of ${FIG_CAP}` : '') + (fig.cluster === f.n && fig.name && !drawing ? ` · ${fig.name}` : '')), far: f, hit: { k: 'far', j } }));
+  $('labels').replaceChildren(...labels.map(l => l.e));
+  for (const l of labels) l.w = l.e.offsetWidth;
+  labelKey = ''; labelShown = [];
+}
+// where a point of the map is on the stage, in CSS pixels, and how far in front of you
+function toScreen(p) {
+  const ty = Math.tan(FOV / 2), tx = ty * stageW / stageH, w = [p[0] - view.pos[0], p[1] - view.pos[1], p[2] - view.pos[2]], z = dot(w, view.fwd);
+  return { x: (dot(w, view.right) / (z * tx) + offX + 1) / 2 * stageW, y: (1 - dot(w, view.up) / (z * ty)) / 2 * stageH, z };
+}
+function placeLabels() {
+  const key = `${offX.toFixed(4)}|${view.pos.map(v => v.toFixed(3))}|${cam.yaw.toFixed(4)}|${cam.pitch.toFixed(4)}|${stageW}|${stageH}|${sel}|${hoverId(hover)}|${fade.toFixed(2)}|${jumping}`;
+  if (key === labelKey) return; labelKey = key;
+  const ppu = stageH / 2 / Math.tan(FOV / 2), farSee = smooth(1300, 2600, cam.dist);
+  const all = labels.map(l => {
+    const { x, y, z } = toScreen(l.s ? l.s.at : l.far ? l.far.pos : l.fig || [0, 2.2, 0]), size = (l.s ? l.s.Rs : l.far ? 600 : 2) * ppu / z;
+    const on = !l.fig && ((!!hover && hover.k === l.hit.k && hover.i === l.hit.i && hover.j === l.hit.j) || (!!l.s && sel === l.s.i));
+    const can = l.far ? farSee > 0.05 && !jumping : fade > 0.6 && (l.of ? !!hover && hover.k === 'sys' && l.of.includes(C.sys[hover.i]) : l.s || l.fig ? cam.dist < 2400 : z < 700);
+    return { l, x, y, z, on, opacity: l.far ? 0.75 * farSee : l.fig ? 0.95 : clamp(1.5 - z / 650, 0.3, 0.8),
+      show: can && z > 0.5 && x > -40 && x < stageW + 10 && y > 0 && y < stageH + 10 && size < 0.42 * Math.min(stageW, stageH) };
+  }).sort((a, b) => b.on - a.on || !!b.l.fig - !!a.l.fig || a.z - b.z);
+  labelShown = [];
+  for (const q of all) {                         // nearest first; a name that would sit on another is left out
+    if (q.show && !q.on && labelShown.some(p => Math.abs(p.x - q.x) < 92 && Math.abs(p.y - q.y) < 15)) q.show = false;
+    q.l.e.hidden = !q.show; if (!q.show) continue;
+    labelShown.push({ x: q.x, y: q.y, w: q.l.w, hit: q.l.hit });
+    q.l.e.style.transform = `translate(${(q.x + 9).toFixed(1)}px, ${(q.y - 8).toFixed(1)}px)`;
+    q.l.e.style.opacity = q.on ? 1 : q.opacity.toFixed(2); q.l.e.className = q.on ? 'on' : q.l.mine ? 'mark' : '';
+  }
+}
+function placeText() {
+  const d = cam.dist, free = follow.k === 'pin' || follow.k === 'point', off = Math.hypot(...cam.T);
+  let s = follow.k === 'sys' ? C.sys[follow.i] : follow.k === 'obj' ? C.sys[C.PS[follow.idx * 3]] : null;
+  if (free && d < 400) s = C.sys.find(q => Math.hypot(q.at[0] - cam.T[0], q.at[1] - cam.T[1], q.at[2] - cam.T[2]) < q.Rs * 1.5) || null;   // looking at a system after a scroll or a drag
+  const text = jumping ? (travel ? 'Traveling to another cluster' : $('where').textContent)
+    : s ? (d > s.Rs * 9 ? `Near ${s.code}` : `At ${s.code} · ${s.sc.traits.Palette} · ${s.sc.traits.Folds}`)
+    : d > 2600 ? 'Far outside the cluster. Other clusters are in sight, and a click on one travels to it.'
+    : C.home ? (free && off > 60 ? 'In the cairn\'s cluster' : d < 30 ? 'At the cairn' : d < 520 ? 'Near the cairn, at the center of its cluster' : 'The cairn\'s cluster')
+    : d < 520 && !(free && off > 60) ? `Near the center of cluster ${C.n}` : `Cluster ${C.n}`;
+  if ($('where').textContent !== text) $('where').textContent = text;
+}
+
+// ---- input: a click (or tap) travels, a drag turns you around the point you look at, the wheel (or a pinch) zooms
+const ptrs = new Map(); let downAt = null, dragged = false, pinch0 = 0, pinchDist0 = 0, rect = { left: 0, top: 0 }, hoverRaf = 0, hoverXY = null;
+const spread = () => { const [a, b] = [...ptrs.values()]; return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 0; };
+function wake() { lastInput = performance.now(); start(); }
+const wantDist = () => travel ? Math.exp(travel.l1) : aim.dist;
+function zoomTo(d) {
+  d = clamp(d, MIN_DIST, MAX_DIST);
+  if (travel && !travel.jump) travel.l1 = Math.log(d);
+  if (!travel) { if (follow.k === 'pin') follow = { k: 'point', p: cam.T.slice() }; aim.dist = d; }
+  wake();
+}
+// The wheel zooms toward what is under the pointer, as a map does: a system or a sphere there if there is one, otherwise
+// the point at the distance you are looking at.
+function zoomAt(d, cx, cy) {
+  if (travel || !ready) return zoomTo(d);
+  const o = view.pos, ray = rayAt(cx, cy), h = pick(cx, cy);
+  const at = h && !h.tt && h.k === 'sys' ? C.sys[h.i].at : null;      // (a name was under the pointer: its system's distance)
+  const tt = at ? (at[0] - o[0]) * ray[0] + (at[1] - o[1]) * ray[1] + (at[2] - o[2]) * ray[2] : h && h.tt && h.k !== 'far' ? h.tt : cam.dist / dot(ray, view.fwd), P = o.map((x, i) => x + ray[i] * tt);
+  follow = { k: 'pin', P, v: cam.T.map((x, i) => (x - P[i]) / cam.dist) };
+  aim.dist = clamp(d, MIN_DIST, MAX_DIST); wake();
+}
+canvas.addEventListener('pointerdown', e => {
+  canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (ptrs.size === 1) { downAt = { x: e.clientX, y: e.clientY }; dragged = false; }
+  else { dragged = true; pinch0 = spread(); pinchDist0 = wantDist(); }
+});
+canvas.addEventListener('pointermove', e => {
+  const p = ptrs.get(e.pointerId);
+  if (!p) { if (e.pointerType === 'mouse' && ready) { hoverXY = [e.clientX - rect.left, e.clientY - rect.top]; if (!hoverRaf) hoverRaf = requestAnimationFrame(doHover); } return; }
+  const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+  if (ptrs.size >= 2) { const s = spread(); if (pinch0 > 0 && s > 0) zoomTo(pinchDist0 * pinch0 / s); return; }
+  if (!dragged && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 6) return;
+  if (!dragged) { dragged = true; canvas.classList.add('drag'); if (follow.k === 'pin') follow = { k: 'point', p: cam.T.slice() }; return; }
+  aim.yaw -= dx * 0.005; aim.pitch = clamp(aim.pitch + dy * 0.005, -1.45, 1.45); wake();
+});
+function hoverId(h) { return h ? h.k + (h.i ?? h.j ?? h.n ?? h.idx ?? '') : ''; }
+function doHover() {
+  hoverRaf = 0; if (!hoverXY || ptrs.size || jumping) return;
+  const h = pick(hoverXY[0], hoverXY[1]), was = hoverId(hover);
+  hover = h; canvas.classList.toggle('over', !!h);
+  if (hoverId(h) !== was) { if (raf) placeLabels(); else frameOnce(); }
+}
+const release = e => {
+  if (!ptrs.has(e.pointerId)) return;
+  ptrs.delete(e.pointerId);
+  if (e.type === 'pointerup' && !dragged && ptrs.size === 0 && ready) clickAt(e.clientX - rect.left, e.clientY - rect.top);
+  if (ptrs.size === 0) { dragged = false; canvas.classList.remove('drag'); }
+  else if (ptrs.size === 1) { const [q] = ptrs.values(); downAt = { x: q.x, y: q.y }; }
+};
+canvas.addEventListener('pointerup', release); canvas.addEventListener('pointercancel', release);
+canvas.addEventListener('pointerleave', () => { hoverXY = null; if (hover) { hover = null; canvas.classList.remove('over'); frameOnce(); } });
+canvas.addEventListener('wheel', e => { e.preventDefault(); zoomAt(wantDist() * Math.exp(e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX - rect.left, e.clientY - rect.top); }, { passive: false });
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'Escape' && ready) toMap();
+});
+$('navMap').onclick = () => ready && toMap();
+$('navFar').onclick = () => ready && toFar();
+$('zoomOut').onclick = () => zoomTo(wantDist() * 1.7);
+$('zoomIn').onclick = () => zoomTo(wantDist() / 1.7);
+$('toCairn').onclick = () => ready && openCairn();
+$('toAny').onclick = () => ready && openSys(Math.floor(Math.random() * N_SYS), true);
+$('hidePanel').onclick = () => openPanel(false); $('openPanel').onclick = () => openPanel(true);
+for (const b of document.querySelectorAll('[data-hide]')) b.onclick = () => openPanel(false);
+for (const b of document.querySelectorAll('[data-back]')) b.onclick = () => showView('list');
+$('reset').onclick = reset;
+$('navCairn').onclick = () => ready && openCairn();
+$('navDraw').onclick = () => ready && openFig();
+$('cairnFig').onclick = () => ready && openFig();
+$('mintFig').onclick = () => ready && openFig();
+$('navFig').onclick = () => ready && showFig();
+$('filter').oninput = e => { const q = e.target.value.trim().toLowerCase(); for (const r of $('rows').children) r.hidden = !!q && !r.dataset.find.includes(q); };
+document.addEventListener('visibilitychange', () => document.hidden ? stop() : start());
+function start() { if (!raf && !document.hidden && ready) { last = performance.now(); raf = requestAnimationFrame(frame); } }
+function stop() { cancelAnimationFrame(raf); raf = 0; }
+function frameOnce() { if (ready && !raf) { updateView(); placeLabels(); } }
+function resize() {
+  const r = canvas.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 1.5);
+  rect = r; stageW = Math.max(1, r.width); stageH = Math.max(1, r.height); setOff(); if (!ready) offX = offAim;
+  canvas.width = Math.round(stageW * dpr); canvas.height = Math.round(stageH * dpr);
+  if (ready) { draw(); placeLabels(); }
+}
+new ResizeObserver(resize).observe($('stage'));
+const ease = (k, dt) => 1 - Math.exp(-k * dt);
+function step(now, dt) {
+  t += dt;
+  if (travel) {
+    const k = Math.min(1, (now - travel.t0) / 1000 / travel.dur), e = k * k * k * (k * (k * 6 - 15) + 10);
+    if (travel.jump) jumpStep(e);
+    const to = targetOf(follow);
+    cam.T = travel.from.map((v, i) => v + (to[i] - v) * e);
+    cam.dist = Math.exp(travel.l0 + (travel.l1 - travel.l0) * e + travel.bump * Math.sin(Math.PI * e));
+    if (k >= 1) { const done = travel.done; aim.dist = Math.exp(travel.l1); travel = null; if (done) done(); }
+  } else { cam.dist += (aim.dist - cam.dist) * ease(6, dt); cam.T = targetOf(follow).slice(); }
+  cam.yaw += (aim.yaw - cam.yaw) * ease(8, dt); cam.pitch += (aim.pitch - cam.pitch) * ease(8, dt);
+  offX += (offAim - offX) * ease(6, dt);
+}
+function frame(now) {
+  raf = requestAnimationFrame(frame);
+  const busy = travel || jumping || now - lastInput < 2500 || ptrs.size > 0;
+  if (now - last < 1000 / ((busy ? FPS : IDLE_FPS) + 1)) return;
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  step(now, dt); draw(); placeLabels(); placeText();
+}
+function draw() {
+  updateView();
+  const w = canvas.width, h = canvas.height, ty = Math.tan(FOV / 2), tx = ty * w / h, f = 1 / ty, n = clamp(cam.dist * 0.02, 0.004, 4), fa = 60000;
+  const proj = new Float32Array([f * h / w, 0, 0, 0, 0, f, 0, 0, -offX, 0, (fa + n) / (n - fa), -1, 0, 0, 2 * fa * n / (n - fa), 0]);
+  const dpr = w / stageW, px = h / 2 * f, o = view.pos;
+  gl.viewport(0, 0, w, h); gl.clearColor(0, 0, 0, 1); gl.depthMask(true); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  // the ground, then the stars beyond, the other clusters and this cluster's far stars, all added up over it
+  gl.disable(gl.DEPTH_TEST); gl.depthMask(false); gl.disable(gl.BLEND);
+  gl.useProgram(P_GROUND.p); gl.uniform1f(P_GROUND.u.uDpr, dpr); gl.bindVertexArray(groundVao); gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+  gl.useProgram(P_PT.p); gl.uniformMatrix3fv(P_PT.u.uRot, false, view.rot); gl.uniform3fv(P_PT.u.uCam, o); gl.uniform2f(P_PT.u.uTan, tx, ty);
+  gl.uniform1f(P_PT.u.uPx, px); gl.uniform1f(P_PT.u.uDpr, dpr); gl.uniform1f(P_PT.u.uOff, offX);
+  gl.uniform1f(P_PT.u.uSky, 1); gl.uniform1f(P_PT.u.uFade, 1); gl.bindVertexArray(skyVao); gl.drawArrays(gl.POINTS, 0, SKY);
+  let np = 0;
+  const plane = (p, R, u, v, kind, alpha, col, ph) => { planes.set([p[0], p[1], p[2], R, u[0], u[1], u[2], kind, v[0], v[1], v[2], alpha, col[0], col[1], col[2], ph], np * 16); np++; };
+  const drawPlanes = () => { if (!np) return; gl.bindVertexArray(planeVao); gl.bindBuffer(gl.ARRAY_BUFFER, bufPlane); gl.bufferSubData(gl.ARRAY_BUFFER, 0, planes.subarray(0, np * 16)); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, np); np = 0; };
+  for (const F of fars) plane(F.pos, CLUSTER_R, [1, 0, 0], [0, 0, 1], 1, 1, F.home ? mixc(PALE, LANTERN, 0.45) : PALE, F.phase);
+  if (fade < 0.999) plane([0, 0, 0], CLUSTER_R, [1, 0, 0], [0, 0, 1], 1, 1 - fade, C.home ? mixc(PALE, LANTERN, 0.45) : PALE, C.phase);
+  gl.useProgram(P_PLANE.p); gl.uniformMatrix4fv(P_PLANE.u.uProj, false, proj); gl.uniformMatrix3fv(P_PLANE.u.uRot, false, view.rot); gl.uniform3fv(P_PLANE.u.uCam, o);
+  drawPlanes();
+  gl.useProgram(P_PT.p); gl.uniform1f(P_PT.u.uSky, 0); gl.uniform1f(P_PT.u.uFade, fade); gl.bindVertexArray(C.fieldVao); gl.drawArrays(gl.POINTS, 0, FIELD);
+  // which systems are in sight, how big each looks, and so how much of its gravel to draw
+  const seen = [];
+  for (const s of C.sys) {
+    const wv = [s.at[0] - o[0], s.at[1] - o[1], s.at[2] - o[2]], z = dot(wv, view.fwd), dc = Math.hypot(...wv), R = s.Rs * 1.25;
+    if (z < -R || Math.abs(dot(wv, view.right)) > Math.max(z, 0) * tx * (1 + Math.abs(offX)) + R * 1.5 || Math.abs(dot(wv, view.up)) > Math.max(z, 0) * ty + R * 1.5) continue;
+    const spx = s.Rs * px / dc, part = clamp(Math.pow(spx / dpr / 170, 1.1), 0.06, 1), count = Math.round(s.count * part);
+    seen.push({ s, dc, n: s.special + count, floor: 0.11 * Math.PI / count, sharp: s.maxSize * px / Math.max(dc - s.Rs, 0.01) >= 1 });
+  }
+  const stones = (pass, which) => {
+    gl.uniform1f(P_STONE.u.uPass, pass);
+    for (const q of seen) if (which(q)) { gl.uniform1f(P_STONE.u.uFloor, q.floor); gl.bindVertexArray(q.s.vao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, q.n); }
+    if (C.cairn) { gl.uniform1f(P_STONE.u.uFloor, 0); gl.bindVertexArray(C.cairn.vao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, C.cairn.count); }
+  };
+  // the stones, spheres and dark bodies big enough to make out
+  gl.enable(gl.DEPTH_TEST); gl.depthMask(true); gl.disable(gl.BLEND);
+  gl.useProgram(P_STONE.p); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, C.edgeTex); gl.uniform1i(P_STONE.u.uEdge, 1);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, C.sysTex); gl.uniform1i(P_STONE.u.uSys, 0);
+  gl.uniformMatrix4fv(P_STONE.u.uProj, false, proj); gl.uniformMatrix3fv(P_STONE.u.uRot, false, view.rot); gl.uniform3fv(P_STONE.u.uCam, o);
+  gl.uniform2f(P_STONE.u.uTan, tx, ty); gl.uniform1f(P_STONE.u.uPx, px); gl.uniform1f(P_STONE.u.uTime, t);
+  gl.uniform1f(P_STONE.u.uOff, Math.abs(offX)); gl.uniform1f(P_STONE.u.uFade, fade);
+  stones(0, q => q.sharp);
+  // the black holes with their discs, over whatever lies behind them and under whatever passes in front
+  for (const { s, dc } of seen) if (s.centre === 'hole' && HOLE_R * px / dc > 3) plane(s.at, HOLE_R, s.nrm, s.disc[0], s.seed, fade, s.disc[1], HOLE_RS);
+  if (np) {
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.useProgram(P_HOLE.p); gl.uniformMatrix4fv(P_HOLE.u.uProj, false, proj); gl.uniformMatrix3fv(P_HOLE.u.uRot, false, view.rot); gl.uniform3fv(P_HOLE.u.uCam, o); gl.uniform1f(P_HOLE.u.uTime, t);
+    drawPlanes(); gl.blendFunc(gl.ONE, gl.ONE);
+  }
+  // the stones too small to make out, then the marks and lights
+  gl.depthMask(false); gl.enable(gl.BLEND); gl.useProgram(P_STONE.p);
+  stones(1, () => true);
+  let g = 0;
+  const glow = (p, r, c, k, minPx, kind = 0, r0 = 0, seed = 0) => { glows.set([p[0], p[1], p[2], r, c[0] * k, c[1] * k, c[2] * k, minPx, kind, r0, seed, 0], g * 12); g++; };
+  for (const s of C.sys) {
+    if (s.centre === 'star') glow(s.at, 1.1, s.sc.glint, fade, 2.3);
+    else if (s.centre === 'eclipse') glow(s.at, s.bodyR / 0.3, s.sc.eclipse.corona, fade, 3.2, 1, 0.3, s.seed);
+    else { const far = 1 - smooth(3, 9, HOLE_R * px / Math.hypot(s.at[0] - o[0], s.at[1] - o[1], s.at[2] - o[2]) / dpr); if (far > 0.01) glow(s.at, s.bodyR / 0.3, s.sc.glint, fade * far, 2.6, 2, 0.3, s.seed); }   // too far for its disc to show: a small ring
+  }
+  // The constellations of this cluster. Yours in red: its systems ringed, and while it is being drawn the system under the
+  // pointer too, faintly. Other people's pale and faint, and in full while you point at one of their systems.
+  const nodes = figSys(), hot = hover && hover.k === 'sys' ? C.sys[hover.i] : null, next = drawing && hot && nodes.length < FIG_MAX && !nodes.includes(hot) ? hot : null;
+  const theirs = othersHere().map(f => { const q = sysOf(f.codes); return { q, al: hot && q.includes(hot) ? 0.9 : 0.22 }; });
+  if (C.home) glow([0, 1.95, 0], 0.22, LANTERN, fade, 3);
+  for (const f of theirs) for (const s of f.q) glow(s.at, s.Rs * 1.28, PALE, fade * f.al * 0.8, 10, 3);
+  for (const s of nodes) glow(s.at, s.Rs * 1.28, RED, fade, 10, 3);
+  if (next) glow(next.at, next.Rs * 1.28, RED, fade * 0.45, 10, 3);
+  const call = smooth(1300, 2800, cam.dist) * (jumping ? 0.3 : 1);                                                    // the rings that call from other clusters
+  if (call > 0.01) fars.forEach((F, j) => glow(F.pos, 1300, F.home ? LANTERN : PALE, call * (0.12 + 0.88 * Math.pow(0.5 + 0.5 * Math.sin(t * 1.5 - j * 1.9), 6)), 8.5, 3));
+  gl.useProgram(P_GLOW.p); gl.uniformMatrix4fv(P_GLOW.u.uProj, false, proj); gl.uniformMatrix3fv(P_GLOW.u.uRot, false, view.rot); gl.uniform3fv(P_GLOW.u.uCam, o);
+  gl.uniform1f(P_GLOW.u.uPx, px); gl.uniform1f(P_GLOW.u.uDpr, dpr);
+  gl.bindVertexArray(glowVao); gl.bindBuffer(gl.ARRAY_BUFFER, bufGlow); gl.bufferSubData(gl.ARRAY_BUFFER, 0, glows.subarray(0, g * 12));
+  gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, g);
+  // their lines, from ring to ring
+  const strips = (figs, col) => {
+    let nv = 0;
+    const cut = s => { const v = [s.at[0] - o[0], s.at[1] - o[1], s.at[2] - o[2]], z = dot(v, view.fwd); return { p: [dot(v, view.right), dot(v, view.up), z], r: Math.max(1.1 * s.Rs * px / Math.max(z, 0.05), 8.6 * dpr) }; };
+    for (const { ends, al, last } of figs) for (let k = 0; k + 1 < ends.length; k++) {
+      let a = cut(ends[k]), b = cut(ends[k + 1]); const zn = 0.05, alpha = fade * (k === ends.length - 2 ? last : al);
+      if (a.p[2] < zn && b.p[2] < zn) continue;
+      if (a.p[2] < zn) a = { p: a.p.map((x, i) => x + (b.p[i] - x) * (zn - a.p[2]) / (b.p[2] - a.p[2])), r: 0 };       // an end behind you: the line starts at the edge of sight
+      if (b.p[2] < zn) b = { p: b.p.map((x, i) => x + (a.p[i] - x) * (zn - b.p[2]) / (a.p[2] - b.p[2])), r: 0 };
+      let ax = (a.p[0] / (a.p[2] * tx) + offX) * w / 2, ay = a.p[1] / (a.p[2] * ty) * h / 2, bx = (b.p[0] / (b.p[2] * tx) + offX) * w / 2, by = b.p[1] / (b.p[2] * ty) * h / 2;
+      const len = Math.hypot(bx - ax, by - ay); if (len < a.r + b.r + 2) continue;
+      const ux = (bx - ax) / len, uy = (by - ay) / len, hw = 0.6 * dpr, nx = -uy * hw, ny = ux * hw;
+      ax += ux * a.r; ay += uy * a.r; bx -= ux * b.r; by -= uy * b.r;
+      for (const [x, y] of [[ax + nx, ay + ny], [ax - nx, ay - ny], [bx + nx, by + ny], [bx + nx, by + ny], [ax - nx, ay - ny], [bx - nx, by - ny]]) { lines[nv * 3] = x / (w / 2); lines[nv * 3 + 1] = y / (h / 2); lines[nv * 3 + 2] = alpha; nv++; }
+    }
+    if (!nv) return;
+    gl.disable(gl.DEPTH_TEST); gl.useProgram(P_LINE.p); gl.uniform3fv(P_LINE.u.uCol, col);
+    gl.bindVertexArray(lineVao); gl.bindBuffer(gl.ARRAY_BUFFER, bufLine); gl.bufferSubData(gl.ARRAY_BUFFER, 0, lines.subarray(0, nv * 3)); gl.drawArrays(gl.TRIANGLES, 0, nv);
+  };
+  if (theirs.length) strips(theirs.map(f => ({ ends: f.q, al: f.al, last: f.al })), PALE);
+  if (nodes.length + (next ? 1 : 0) > 1) strips([{ ends: next ? [...nodes, next] : nodes, al: 0.9, last: next ? 0.4 : 0.9 }], RED);
+  gl.bindVertexArray(null);
+}
+async function begin() {
+  $('where').textContent = 'Reading the seeds…';
+  try {
+    const scenes = await readScenes(CODES);
+    initGL(); C = HOMEC = makeCluster(CODES, scenes, 0, 0, 77); fars = makeFars(0);
+    makeLabels(); renderList(); renderFig();
+    ready = true; resize(); wake(); arrive();
+  } catch (e) { $('where').textContent = String(e && e.message || e); }
+}
+// Opened as a file, the browser keeps this page from reading the piece file, but it may load a script from its own
+// folder: piece.js, a copy of the piece's source.
+function pieceFromDisk() {
+  return new Promise(res => {
+    const s = document.createElement('script'); s.src = 'piece.js';
+    s.onload = () => res(typeof window.PIECE_HTML === 'string' ? window.PIECE_HTML : null); s.onerror = () => res(null);
+    document.head.append(s);
+  });
+}
+// The menu's entries have nowhere to go yet. The mark leaves a frame (the shared copy is shown inside one) in a new tab.
+for (const a of document.querySelectorAll('#bar a[href="#"]')) a.onclick = e => e.preventDefault();
+$('conn').onclick = connect;
+$('mintInfo').onclick = e => { e.preventDefault(); showView('mint'); openPanel(true); };      // the dates and the prices, in the panel
+if (self !== top) { const a = document.querySelector('#bar .brand'); a.target = '_blank'; a.rel = 'noopener'; }
+if (!gl) $('where').textContent = 'This page needs WebGL2.';
+else if (location.protocol === 'file:' && !PIECE_HTML) pieceFromDisk().then(html => {
+  if (html) { PIECE_HTML = html; begin(); }
+  else $('where').textContent = 'The copy of the piece this page reads (piece.js) is missing. In the vigil folder, run “node tools/site/mint-exp/share.mjs” to write it, then reload.';
+});
+else begin();
+</script>
+</body>
+</html>
