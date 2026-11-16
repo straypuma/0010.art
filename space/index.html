@@ -105,6 +105,8 @@
     background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 14px 40px rgb(0 0 0 / .45); }
   #doneBox h2 { margin: 0 0 10px; }
   #doneBox p { margin: 0 0 16px; }
+  #doneBox p b { color: var(--accent); font-weight: 600; white-space: nowrap; }
+  #doneBox p span { white-space: nowrap; }
   #doneBox .row { margin: 0; }
   #doneBox .btn.x { border-color: var(--accent); }
   #doneBox .btn.x:hover { background: rgb(224 101 92 / .16); }
@@ -957,9 +959,15 @@ function badName(name) {
   return PHRASE.some(r => r.test(joined)) || (words.some(w => w.length === 1) && INSIDE.some(r => r.test(joined)));
 }
 // Once a constellation has been left: a card that says so, with "Keep exploring" (which shows the figure) and "Share on
-// X" (a post written for the visitor to send from their own account; the page only opens X's post form).
-function showDone() {
-  $('doneText').textContent = `${fig.name} links ${fig.codes.length} systems in ${clusterName(fig.cluster)}, and the address ${shortAddr(fig.addr)} is on the allowlist for the mint.`;
+// X" (a post written for the visitor to send from their own account; the page only opens X's post form). With the server,
+// the card also says the address's rank on the allowlist (1 is the first address added).
+function showDone(rank) {
+  const t = $('doneText');
+  const el = (tag, text) => { const e = document.createElement(tag); e.textContent = text; return e; };   // (the address and the rank each kept on one line)
+  t.textContent = `${fig.name} links ${fig.codes.length} systems in ${clusterName(fig.cluster)}, and the address `;
+  t.append(el('span', shortAddr(fig.addr)), ' is on the allowlist for the mint');
+  if (rank > 0) t.append(' at ', el('b', `rank ${rank}`));
+  t.append('.');
   $('doneBox').hidden = false; $('doneBack').focus();
 }
 function closeDone(show) { $('doneBox').hidden = true; if (show) showFig(); }
@@ -977,7 +985,7 @@ async function leave(name, err) {
   catch { err.textContent = 'The constellation was not signed.'; return; }
   const { ok, body } = await ask('/constellation', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cluster: fig.cluster, codes: fig.codes, name, addr: a, time, sig }) });
   if (!ok) { err.textContent = body.error || 'The server could not be reached. Try again.'; return; }
-  fig.name = name; fig.addr = a; save(); countsAt = 0; arrive(); showDone();
+  fig.name = name; fig.addr = a; save(); countsAt = 0; arrive(); showDone(body.rank);
 }
 function startDrawing() {
   if (jumping || othersHere().length >= FIG_CAP) return;
