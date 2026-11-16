@@ -37,10 +37,11 @@
   /* The map fills the window. The bar and the menu on the left lie over it with no ground of their own, and let clicks
      and scrolls through wherever they are empty. The panel on the right is a card that floats over it, under the bar;
      --pw is the width the card takes from the map's right side (nothing while it is hidden). */
-  #app { display: grid; grid-template-columns: 272px minmax(0, 1fr) auto; height: 100%; --pw: 330px; }
+  #app { display: grid; grid-template-columns: 272px minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr); height: 100%; --pw: 330px; }   /* (one row, the window's height, however tall the menu's card) */
   #app:has(#panel[hidden]) { --pw: 0px; }
   aside { background: var(--panel); overflow-y: auto; overscroll-behavior: contain; padding: 18px 18px 28px; }
-  #side { grid-column: 1; grid-row: 1; z-index: 2; align-self: start; background: none; overflow: visible; pointer-events: none; padding-top: 76px; text-shadow: 0 0 3px #000, 0 0 9px #000; }
+  #side { grid-column: 1; grid-row: 1; z-index: 2; align-self: start; background: none; overflow: visible; pointer-events: none; padding-top: 76px; text-shadow: 0 0 3px #000, 0 0 9px #000;
+    max-height: 100%; display: flex; flex-direction: column; padding-bottom: 64px; }
   #side button { pointer-events: auto; }
   #stage { grid-column: 1 / 4; grid-row: 1; }
   #panel { grid-column: 3; grid-row: 1; z-index: 1; align-self: start; width: 316px; max-height: calc(100% - 78px); margin: 64px 14px 14px 0;
@@ -61,7 +62,13 @@
   a.btn { display: inline-block; text-decoration: none; color: var(--fg); }
   #toMint { margin-top: 8px; }
   /* the menu: a tree that opens and closes */
-  #side nav { display: flex; flex-direction: column; align-items: flex-start; }
+  #side nav { display: flex; flex-direction: column; align-items: flex-start; min-height: 0; }
+  #side nav > button { flex: none; }
+  /* The constellation's card: under its menu entry, solid like the panel on the right, and open until it is closed. */
+  #figCard { pointer-events: auto; text-shadow: none; flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; width: 300px; margin: 8px 0 6px -4px;
+    padding: 12px 16px 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 28px rgb(0 0 0 / .35); }
+  #figCard .head { justify-content: flex-end; margin: 0; }
+  #figCard > p:first-of-type { margin-top: 0; }
   #side nav > button { display: flex; padding: 3px 0; cursor: pointer; }
   #side nav > button > span + span { margin-left: 14px; }
   #side nav > button::before { content: '>'; margin-right: 6px; color: var(--dim); }
@@ -126,6 +133,12 @@
       <button type="button" id="navFar"><span>Other clusters</span></button>
       <button type="button" id="navCairn"><span>The cairn</span></button>
       <button type="button" id="navDraw"><span>Constellation</span><span class="dim" id="count"></span></button>
+      <section id="figCard" hidden>
+        <div class="head"><button class="link" type="button" id="figClose">close</button></div>
+        <p>People who keep watch at night pick out figures among the stars and give them names. If you link three to seven systems of one cluster with lines and name the figure, you can add your address to the allowlist for the mint. Every cluster keeps its own constellations, eight at most.</p>
+        <div id="figDo"></div>
+        <p><button class="link" type="button" id="reset">Clear the constellation (for testing)</button></p>
+      </section>
       <button type="button" id="navFig" hidden><span id="figName"></span></button>
     </nav>
   </aside>
@@ -176,13 +189,6 @@
       </dl>
       <p><a class="btn" id="toMint" href="https://0010.art/vigil/mint/" target="_blank" rel="noopener">mint ↗︎</a></p>
     </section>
-    <section id="v-fig" hidden>
-      <div class="head"><button class="link" type="button" data-back>← all systems</button><button class="link" type="button" data-hide>hide</button></div>
-      <h2>Constellation</h2>
-      <p>People who keep watch at night pick out figures among the stars and give them names. If you link three to seven systems of one cluster with lines and name the figure, you can add your address to the allowlist for the mint. Every cluster keeps its own constellations, eight at most.</p>
-      <div id="figDo"></div>
-      <p><button class="link" type="button" id="reset">Clear the constellation (for testing)</button></p>
-    </section>
   </aside>
 </div>
 <script src="piece.js"></script>
@@ -213,7 +219,9 @@ let PIECE_HTML = typeof window.PIECE_HTML === 'string' ? window.PIECE_HTML : nul
 // Where the constellation server is (server/, a Cloudflare Worker). ?api= or VIGIL_API name another one, for a test.
 // Shown inside another page's frame (the shared copy), the page may not reach it, so there it uses none: with none, the
 // page keeps a constellation in this browser only.
-const API = self !== top ? '' : (new URLSearchParams(location.search).get('api') || window.VIGIL_API || 'https://vigil-constellations.vigil-constellations.workers.dev').replace(/\/+$/, '');
+// ?api=none: no server, for a test.
+const API_Q = new URLSearchParams(location.search).get('api');
+const API = self !== top || API_Q === 'none' ? '' : (API_Q || window.VIGIL_API || 'https://vigil-constellations.vigil-constellations.workers.dev').replace(/\/+$/, '');
 const TOUCH = matchMedia('(pointer: coarse)').matches, CALM = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const N_SYS = 36;                          // systems in a cluster
 const PER_SYS = TOUCH ? 4500 : 36000;      // belt stones in one system
@@ -804,7 +812,7 @@ async function leave(name, err) {
 }
 function startDrawing() {
   if (jumping || othersHere().length >= FIG_CAP) return;
-  fig = { cluster: C.n, codes: [], name: '', addr: fig.addr }; drawing = true; save(); makeLabels(); showView('fig'); openPanel(true); renderFig(); go({ k: 'cairn' }, MAP * 0.8);
+  fig = { cluster: C.n, codes: [], name: '', addr: fig.addr }; drawing = true; save(); makeLabels(); openFig(); go({ k: 'cairn' }, MAP * 0.8);
 }
 // a click on a system while drawing: add it to the figure, or take it off again if it is the last one
 function link(i) {
@@ -816,7 +824,9 @@ function link(i) {
   save(); renderFig(); wake();
 }
 function reset() { fig = { cluster: 0, codes: [], name: '', addr: '' }; drawing = false; save(); makeLabels(); renderFig(); wake(); }
-function openFig() { if (jumping) return; showView('fig'); openPanel(true); renderFig(); }
+// The constellation's card stays open while you click around the map, until it is closed (its menu entry opens and closes it).
+function openFig() { if (jumping) return; $('figCard').hidden = false; renderFig(); }
+function closeFig() { $('figCard').hidden = true; renderFig(); }
 // the view that holds the whole figure, travelling to its cluster first
 function showFig() {
   if (jumping || drawing || fig.codes.length < FIG_MIN) return;
@@ -942,7 +952,7 @@ function clickAt(cx, cy) {
 
 // ---- the panels
 let pieceFor = null;
-function showView(name) { for (const v of ['list', 'sys', 'cairn', 'fig', 'mint']) $('v-' + v).hidden = v !== name; if (name !== 'sys') sel = -1; syncPiece(); }
+function showView(name) { for (const v of ['list', 'sys', 'cairn', 'mint']) $('v-' + v).hidden = v !== name; if (name !== 'sys') sel = -1; syncPiece(); }
 function openPanel(yes) { $('panel').hidden = !yes; $('openPanel').hidden = yes; setOff(); syncPiece(); wake(); }
 // The panel floats over the map's right side, so while it shows, the middle of the view (where what you travel to comes
 // to rest) is the middle of the map that is left: offX shifts the whole picture left by half the panel's width, in the
@@ -978,12 +988,12 @@ function el(tag, props, ...kids) { const e = Object.assign(document.createElemen
 // for a name and an address, or left in its cluster (this one or another).
 function renderFig() {
   const n = fig.codes.length, box = $('figDo'), here = fig.cluster === C.n, has = n >= FIG_MIN && !drawing, left = has && !!fig.name && !!fig.addr, others = othersHere();
-  $('count').textContent = drawing ? `${n} of ${FIG_MIN} to ${FIG_MAX}` : left ? 'done' : '';
+  $('count').textContent = drawing ? `${n} linked` : left ? 'done' : '';
   $('carry').textContent = drawing ? `Drawing a constellation: ${n} ${n === 1 ? 'system' : 'systems'} linked. Click a system to link it.` : '';
-  $('navFig').hidden = !left; $('figName').textContent = fig.name;
+  $('navFig').hidden = !left || !$('figCard').hidden; $('figName').textContent = fig.name;      // (while the card is open, its own button shows the figure)
   const list = () => el('ol', { className: 'fig' }, ...fig.codes.map(c => el('li', {}, c)));
   const room = others.length >= FIG_CAP ? el('p', { className: 'dim' }, `This cluster already holds ${FIG_CAP} constellations, which is as many as a cluster keeps. The other clusters come into sight when you zoom all the way out.`)
-    : el('button', { type: 'button', className: has ? 'link' : 'btn', onclick: startDrawing }, has ? (here ? 'Draw it again' : `Draw a new one here, in ${clusterName(C.n)}`) : `Draw a constellation in ${clusterName(C.n)}`);
+    : el('button', { type: 'button', className: has ? 'link' : 'btn', onclick: startDrawing }, has ? (here ? 'Draw it again' : `Draw a new one here, in ${clusterName(C.n)}`) : 'Draw a constellation here');
   const kept = others.length ? [el('p', { className: 'dim' }, `${others.length} of ${FIG_CAP} constellations are kept in this cluster. Point at a system to see the ones it belongs to.`)] : [];
   if (drawing) box.replaceChildren(
     el('p', {}, `Click a system on the map to add it to the figure, and click the last one again to take it off. The figure needs at least ${FIG_MIN} systems and can have ${FIG_MAX}. You can still drag and scroll to look around.`),
@@ -992,7 +1002,9 @@ function renderFig() {
       el('button', { type: 'button', className: 'btn', disabled: n < FIG_MIN, onclick: () => { drawing = false; makeLabels(); renderFig(); showFig(); } }, 'Done'),
       el('button', { type: 'button', className: 'btn', disabled: !n, onclick: () => { fig.codes.pop(); save(); renderFig(); wake(); } }, 'Take the last one off'),
       el('button', { type: 'button', className: 'btn', onclick: () => { drawing = false; fig.codes = []; save(); renderFig(); wake(); } }, 'Stop')));
-  else if (!has) box.replaceChildren(room, ...kept);
+  else if (!has) box.replaceChildren(
+    el('p', {}, `You are in ${clusterName(C.n)}. A constellation is drawn in the cluster you are in, so to draw one in another cluster, travel there first.`),
+    el('div', { className: 'row' }, room), el('button', { type: 'button', className: 'link', onclick: () => { if (!jumping) go({ k: 'cairn' }, FAR_VIEW); } }, 'Show the other clusters'), ...kept);
   else if (left) box.replaceChildren(
     el('p', {}, API ? `Your constellation ${fig.name} links ${n} systems in ${clusterName(fig.cluster)}, and the address ${shortAddr(fig.addr)} is on the allowlist with it.`
       : `Your constellation ${fig.name} links ${n} systems in ${clusterName(fig.cluster)}, and the address ${shortAddr(fig.addr)} is noted with it in this browser. This page has no server yet, so neither has been sent anywhere.`),
@@ -1152,7 +1164,8 @@ for (const b of document.querySelectorAll('[data-hide]')) b.onclick = () => open
 for (const b of document.querySelectorAll('[data-back]')) b.onclick = () => showView('list');
 $('reset').onclick = reset;
 $('navCairn').onclick = () => ready && openCairn();
-$('navDraw').onclick = () => ready && openFig();
+$('navDraw').onclick = () => ready && ($('figCard').hidden ? openFig() : closeFig());
+$('figClose').onclick = closeFig;
 $('cairnFig').onclick = () => ready && openFig();
 $('mintFig').onclick = () => ready && openFig();
 $('navFig').onclick = () => ready && showFig();
