@@ -1196,7 +1196,7 @@ function toFar() { if (jumping) return; showView('far'); renderFar(); openPanel(
 function renderFar() {
   const here = clusterAt(C.n), d = n => Math.hypot(...clusterAt(n).map((v, i) => v - here[i]));
   const open = countsAt ? N_CLUSTERS - Object.values(counts).filter(n => n >= FIG_CAP).length : 0;
-  $('farWhere').textContent = `In sight from ${clusterName(C.n)}.` + (countsAt ? ` ${open} of the ${N_CLUSTERS} clusters have room.` : '');
+  $('farWhere').textContent = `In sight from ${clusterName(C.n)}.` + (!countsAt ? '' : !open ? ' Every cluster is full.' : ` ${open} of the ${N_CLUSTERS} clusters ${open === 1 ? 'has' : 'have'} room.`);
   const full = n => (counts[n] || 0) >= FIG_CAP;
   $('farRows').replaceChildren(...fars.map((f, j) => ({ f, j, d: d(f.n) })).sort((a, b) => full(a.f.n) - full(b.f.n) || a.d - b.d).map(({ f, j }) => {
     const n = counts[f.n] || 0, mark = h => () => { hover = h; labelKey = ''; wake(); };
@@ -1322,7 +1322,7 @@ function placeText() {
   if (free && d < 400) s = C.sys.find(q => Math.hypot(q.at[0] - cam.T[0], q.at[1] - cam.T[1], q.at[2] - cam.T[2]) < q.Rs * 1.5) || null;   // looking at a system after a scroll or a drag
   const text = jumping ? (travel ? 'Traveling to another cluster' : $('where').textContent)
     : s ? (d > s.Rs * 9 ? `Near ${s.code}` : `At ${s.code} · ${s.sc.traits.Palette} · ${s.sc.traits.Folds}`)
-    : d > 2600 ? 'Far outside the cluster. Other clusters are in sight, and a click on one travels to it.'
+    : d > 2600 ? (C.home ? 'In the cairn\'s cluster' : `In cluster ${C.n}`)
     : C.home ? (free && off > 60 ? 'In the cairn\'s cluster' : d < 30 ? 'At the cairn' : d < 520 ? 'Near the cairn, at the center of its cluster' : 'The cairn\'s cluster')
     : d < 520 && !(free && off > 60) ? `Near the center of cluster ${C.n}` : `Cluster ${C.n}`;
   if ($('where').textContent !== text) $('where').textContent = text;
