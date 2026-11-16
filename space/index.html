@@ -33,7 +33,11 @@
   #bar nav { align-items: center; }
   #bar nav a.info, #bar nav a.info:hover { color: var(--accent); }
   #bar .conn { padding: 6px 12px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--line); color: var(--fg); line-height: 1; }
-  #bar .conn:hover { box-shadow: inset 0 0 0 1px var(--fg); }
+  #bar .conn:hover, #bar .conn[aria-expanded="true"] { box-shadow: inset 0 0 0 1px var(--fg); }
+  /* under the connected address: the address in full and a way to disconnect */
+  #connMenu { position: absolute; z-index: 5; top: 58px; right: calc(18px + env(safe-area-inset-right, 0px)); width: 264px; padding: 12px 14px; pointer-events: auto; text-shadow: none;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 28px rgb(0 0 0 / .35); }
+  #connMenu p { margin: 0 0 10px; color: var(--dim); overflow-wrap: anywhere; }
   /* The map fills the window. The bar and the menu on the left lie over it with no ground of their own, and let clicks
      and scrolls through wherever they are empty. The panel on the right is a card that floats over it, under the bar;
      --pw is the width the card takes from the map's right side (nothing while it is hidden). */
@@ -59,8 +63,7 @@
   .link:hover { color: var(--fg); }
   .btn { background: var(--btn); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
   .btn:hover { background: var(--btn-h); }
-  a.btn { display: inline-block; text-decoration: none; color: var(--fg); }
-  #toMint { margin-top: 8px; }
+  .btn.soon, .btn.soon:hover, .btn.soon:disabled { margin-top: 8px; background: var(--btn); color: var(--dim); cursor: default; opacity: 1; }   /* until the mint opens; then a link to the mint page */
   /* the menu: a tree that opens and closes */
   #side nav { display: flex; flex-direction: column; align-items: flex-start; min-height: 0; }
   #side nav > button { flex: none; }
@@ -125,8 +128,9 @@
     <a href="#">my systems</a>
     <a href="#">my collection</a>
     <a href="#">vigil</a>
-    <button class="conn" id="conn" type="button">connect</button>
+    <button class="conn" id="conn" type="button" aria-haspopup="true" aria-expanded="false">connect</button>
   </nav>
+  <div id="connMenu" hidden><p id="connWho"></p><button class="btn" id="disconnect" type="button">disconnect</button></div>
 </header>
 <div id="app">
   <aside id="side">
@@ -139,7 +143,6 @@
         <div class="head"><button class="link" type="button" id="figClose">close</button></div>
         <p>People who keep watch at night pick out figures among the stars and give them names. If you link three to seven systems of one cluster with lines and name the figure, you can add your address to the allowlist for the mint. Every cluster keeps its own constellations, eight at most.</p>
         <div id="figDo"></div>
-        <p><button class="link" type="button" id="reset">Clear the constellation (for testing)</button></p>
       </section>
       <button type="button" id="navFig" hidden><span id="figName"></span></button>
     </nav>
@@ -189,7 +192,7 @@
         <dt>Allowlist</dt><dd>48 hours · 0.0099 ETH</dd>
         <dt>Public</dt><dd>48 hours · 0.015 ETH</dd>
       </dl>
-      <p><a class="btn" id="toMint" href="https://0010.art/vigil/mint/" target="_blank" rel="noopener">mint ↗︎</a></p>
+      <p><button class="btn soon" type="button" disabled>minting soon</button></p>
     </section>
   </aside>
 </div>
@@ -791,6 +794,20 @@ async function connect() {
   }
   renderFig(); return wallet;
 }
+// The connect pill: before connecting it connects; after, it opens a small menu with the address and "disconnect".
+// Disconnecting forgets the address on this page (and asks the wallet to drop its permission, where the wallet allows
+// that); the constellation stays on the allowlist, and connecting again brings it back.
+function connMenu(open) {
+  $('connMenu').hidden = !open; $('conn').setAttribute('aria-expanded', String(open));
+  if (open) $('connWho').textContent = wallet;
+}
+function onConn(e) { e.stopPropagation(); if (!wallet) connect(); else connMenu($('connMenu').hidden); }
+async function disconnect() {
+  const was = wallet; wallet = ''; connMenu(false); $('conn').textContent = 'connect';
+  try { await window.ethereum?.request({ method: 'wallet_revokePermissions', params: [{ eth_accounts: {} }] }); } catch {}
+  if (!drawing && fig.addr && fig.addr === was) { fig = { cluster: 0, codes: [], name: '', addr: '' }; save(); }
+  makeLabels(); renderFig(); wake();
+}
 // how full every cluster is, asked again at most once a minute (or at once, with fresh)
 async function loadCounts(fresh) {
   if (!API || (!fresh && Date.now() - countsAt < 60e3)) return;
@@ -815,6 +832,24 @@ async function findRoom() {
   }
   if (best < 0) { toast('Every cluster is full.'); return; }
   travelTo(best, openFig);
+}
+// ---- names. The same lines are in server/src/worker.js, which refuses the name too.
+// Names that are refused: slurs, hate slogans, and explicit sexual words and the strongest swearing. The name is
+// lowercased, its accents dropped and its look-alike digits read as letters (n1gg3r is nigger). Short words are refused
+// only as whole words, so that ordinary words that contain them pass (spice, peacock, grape, Ashkenazi). Long ones are
+// refused inside any word (bullshit), and across the whole name when it is spelled out letter by letter (f u c k). A
+// filter can be got round; the server's admin key takes a name off the map.
+const LOOK = { 0: 'o', 1: 'i', 3: 'e', 4: 'a', 5: 's', 7: 't', 8: 'b', '@': 'a', $: 's', '!': 'i', '|': 'i' };
+const INSIDE = [/n+i+g+g+(e+r|a+|u+h)/, /f+a+g+g+o+t/, /f+u+c+k/, /(^|[^s])c+u+n+t/, /s+h+it/, /p+o+r+n/, /k+k+k/, /h+i+t+l+e+r/, /c+u+m+s+h+o+t/, /m+o+l+e+s+t/, /p+e+d+o+p+h/];
+const PHRASE = [/w+h+i+t+e+p+o+w+e+r/, /s+i+e+g+h+e+i+l/, /h+e+i+l+h+i+t+l+e+r/];      // (looked for across the whole name)
+const WHOLE = /^(fags?|kikes?|spi(c|ck)s?|chinks?|coons?|gooks?|dykes?|wetbacks?|ragheads?|towelheads?|beaners?|pakis?|trann(y|ies)|retard(s|ed)?|nazis?|heil|rapes?|raped|rapists?|cocks?|dicks?|pussy|pussies|cum|sluts?|whores?|twats?|wank(ers?)?|jizz|tits)$/;
+function badName(name) {
+  const t = String(name).toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '');
+  if (/(^|\D)1488(\D|$)/.test(t)) return true;
+  const words = t.replace(/[0134578@$!|]/g, c => LOOK[c]).split(/[^a-z]+/).filter(Boolean);
+  if (words.some(w => WHOLE.test(w) || INSIDE.some(r => r.test(w)))) return true;
+  const joined = words.join('');
+  return PHRASE.some(r => r.test(joined)) || (words.some(w => w.length === 1) && INSIDE.some(r => r.test(joined)));
 }
 // leave the constellation with the server: the wallet signs a text that names it, and the server checks the signature
 async function leave(name, err) {
@@ -1038,6 +1073,7 @@ function renderFig() {
       el('form', { onsubmit: async e => {
         e.preventDefault(); const nm = name.value.trim().replace(/\s+/g, ' '), v = input.value.trim(); err.textContent = '';
         if (nm.length < 2 || /[<>]/.test(nm)) { err.textContent = 'Give the constellation a name of at least two characters, without angle brackets.'; return; }
+        if (badName(nm)) { err.textContent = 'That name is not allowed here. Choose another.'; return; }
         if (API) { go.disabled = true; await leave(nm, err); go.disabled = false; return; }
         if (!/^0x[0-9a-fA-F]{40}$/.test(v) && !/^([a-z0-9-]+\.)+eth$/i.test(v)) { err.textContent = 'Enter an address that starts with 0x and has 40 more characters, or a name that ends in .eth.'; return; }
         fig.name = nm; fig.addr = v; save(); makeLabels(); renderFig(); wake();
@@ -1184,7 +1220,6 @@ $('toAny').onclick = () => ready && openSys(Math.floor(Math.random() * N_SYS), t
 $('hidePanel').onclick = () => openPanel(false); $('openPanel').onclick = () => openPanel(true);
 for (const b of document.querySelectorAll('[data-hide]')) b.onclick = () => openPanel(false);
 for (const b of document.querySelectorAll('[data-back]')) b.onclick = () => showView('list');
-$('reset').onclick = reset;
 $('navCairn').onclick = () => ready && openCairn();
 $('navDraw').onclick = () => ready && ($('figCard').hidden ? openFig() : closeFig());
 $('figClose').onclick = closeFig;
@@ -1340,7 +1375,9 @@ function pieceFromDisk() {
 }
 // The menu's entries have nowhere to go yet. The mark leaves a frame (the shared copy is shown inside one) in a new tab.
 for (const a of document.querySelectorAll('#bar a[href="#"]')) a.onclick = e => e.preventDefault();
-$('conn').onclick = connect;
+$('conn').onclick = onConn;
+$('disconnect').onclick = disconnect;
+addEventListener('click', e => { if (!$('connMenu').hidden && !$('connMenu').contains(e.target)) connMenu(false); });
 $('mintInfo').onclick = e => { e.preventDefault(); showView('mint'); openPanel(true); };      // the dates and the prices, in the panel
 if (self !== top) { const a = document.querySelector('#bar .brand'); a.target = '_blank'; a.rel = 'noopener'; }
 if (!gl) $('where').textContent = 'This page needs WebGL2.';
