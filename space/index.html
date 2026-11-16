@@ -72,7 +72,7 @@
   .btn:hover { background: var(--btn-h); }
   .btn.soon, .btn.soon:hover, .btn.soon:disabled { margin-top: 8px; background: var(--btn); color: var(--dim); cursor: default; opacity: 1; }   /* until the mint opens; then a link to the mint page */
   /* the menu: a tree that opens and closes */
-  #side nav { display: flex; flex-direction: column; align-items: flex-start; min-height: 0; }
+  #side nav { display: flex; flex-direction: column; align-items: flex-start; flex: none; }
   #side nav > button { flex: none; }
   /* The constellation's card: under its menu entry, solid like the panel on the right, and open until it is closed. */
   #figCard { pointer-events: auto; text-shadow: none; flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; width: 300px; margin: 8px 0 6px -4px;
@@ -129,6 +129,42 @@
   ol.fig li::before { content: counter(n); color: var(--dim); }
   .row { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
   .btn:disabled { opacity: .4; cursor: default; }
+  /* ---- phones and other narrow screens: a short bar, the menu folded behind a button, and the panels as sheets from the
+     bottom of the screen (one at a time); the view's middle moves up above a sheet. */
+  #menuBtn, .site-links { display: none; }
+  @media (max-width: 760px), (pointer: coarse) and (max-height: 500px) {      /* (a phone held either way) */
+    #bar { padding: calc(10px + env(safe-area-inset-top, 0px)) calc(12px + env(safe-area-inset-right, 0px)) 10px calc(12px + env(safe-area-inset-left, 0px)); }
+    #bar nav { gap: 12px; font-size: 12px; }
+    #bar nav a:not(.info) { display: none; }
+    #menuBtn { display: inline-block; padding: 6px 12px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--line); color: var(--fg); line-height: 1; }
+    #menuBtn[aria-expanded="true"] { box-shadow: inset 0 0 0 1px var(--fg); }
+    #connMenu { top: calc(50px + env(safe-area-inset-top, 0px)); right: 12px; }
+    #app { grid-template-columns: minmax(0, 1fr); --pw: 0px; }
+    #stage { grid-column: 1; }
+    #side { position: fixed; inset: 0; z-index: 5; display: block; max-height: none; padding: 0; }
+    #side nav { position: absolute; top: calc(50px + env(safe-area-inset-top, 0px)); left: 12px; right: 12px; display: none; padding: 10px 16px; pointer-events: auto; text-shadow: none;
+      background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 28px rgb(0 0 0 / .45); }
+    #side.open nav { display: flex; }
+    #side nav > button { padding: 8px 0; font-size: 13px; }
+    #figCard.drawing > p:first-of-type { display: none; }   /* While drawing, the sheet keeps to the figure and its buttons, and keeps one */
+    #figCard.drawing { height: 44%; }                         /* height, so the map above it stays put while systems are tapped. */
+    .site-links { display: flex; flex-direction: column; align-items: flex-start; align-self: stretch; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 13px; }
+    .site-links a { padding: 8px 0; color: var(--dim); text-decoration: none; }
+    .site-links a[aria-current="page"] { color: var(--fg); }
+    .site-links a.later::after { content: ' · soon'; }
+    #figCard, #panel { position: fixed; z-index: 6; left: 0; right: 0; bottom: 0; top: auto; width: auto; max-height: 55%; margin: 0; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+      border: 1px solid var(--line); border-bottom: 0; border-radius: 12px 12px 0 0; box-shadow: 0 -8px 28px rgb(0 0 0 / .4); }
+    #figCard { padding-top: 12px; }
+    #status { top: calc(50px + env(safe-area-inset-top, 0px)); bottom: auto; left: 14px; right: 14px; font-size: 11px; line-height: 1.45; }
+    #tools { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+    #tools button, .open { height: 34px; padding: 0 12px; }
+    #openPanel { top: auto; right: auto; left: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+    #app.sheet #tools, #app.sheet #openPanel { display: none; }
+    #toast { top: calc(96px + env(safe-area-inset-top, 0px)); }
+    #doneBox { top: 30%; z-index: 7; }
+    #labels div { font-size: 10px; }
+  }
+  @media (pointer: coarse) { input { font-size: 16px; } }   /* (phones zoom the page into a field with smaller type) */
   form { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
   .err { color: var(--accent); }
   #src { position: fixed; left: -10000px; top: 0; width: 400px; height: 500px; border: 0; }
@@ -144,6 +180,7 @@
     <a href="#" class="later">my collection</a>
     <a href="https://0010.art/vigil/">vigil</a>
     <button class="conn" id="conn" type="button" aria-haspopup="true" aria-expanded="false">connect</button>
+    <button class="menu" id="menuBtn" type="button" aria-expanded="false" aria-controls="side">menu</button>
   </nav>
   <div id="connMenu" hidden><p id="connWho"></p><button class="btn" id="disconnect" type="button">disconnect</button></div>
 </header>
@@ -154,13 +191,14 @@
       <button type="button" id="navFar"><span>Other clusters</span></button>
       <button type="button" id="navCairn"><span>The cairn</span></button>
       <button type="button" id="navDraw"><span>Constellation</span><span class="dim" id="count"></span></button>
-      <section id="figCard" hidden>
+      <button type="button" id="navFig" hidden><span id="figName"></span></button>
+      <div class="site-links"><a href="#" aria-current="page">space</a><a href="#" class="later">my systems</a><a href="#" class="later">my collection</a><a href="https://0010.art/vigil/">vigil</a></div>
+    </nav>
+    <section id="figCard" hidden>
         <div class="head"><button class="link" type="button" id="figClose">close</button></div>
         <p>People who keep watch at night pick out figures among the stars and give them names. If you link three to seven systems of one cluster with lines and name the figure, you can add your address to the allowlist for the mint. Every cluster keeps its own constellations, eight at most.</p>
         <div id="figDo"></div>
-      </section>
-      <button type="button" id="navFig" hidden><span id="figName"></span></button>
-    </nav>
+    </section>
   </aside>
   <main id="stage">
     <canvas id="c"></canvas>
@@ -244,6 +282,7 @@ let PIECE_HTML = typeof window.PIECE_HTML === 'string' ? window.PIECE_HTML : nul
 // ?api=none: no server, for a test.
 const API_Q = new URLSearchParams(location.search).get('api');
 const API = self !== top || API_Q === 'none' ? '' : (API_Q || window.VIGIL_API || 'https://vigil-constellations.vigil-constellations.workers.dev').replace(/\/+$/, '');
+const PHONE = matchMedia('(max-width: 760px), (pointer: coarse) and (max-height: 500px)');   // (the same as the styles' phone layout)
 const TOUCH = matchMedia('(pointer: coarse)').matches, CALM = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const N_SYS = 36;                          // systems in a cluster
 const PER_SYS = TOUCH ? 4500 : 36000;      // belt stones in one system
@@ -366,7 +405,7 @@ float vn3(vec3 p){ vec3 i = floor(p), f = fract(p); f = f*f*(3.0 - 2.0*f);
 const VS = `#version 300 es
 layout(location=0) in vec2 aC; layout(location=1) in vec4 aA; layout(location=2) in vec4 aK; layout(location=3) in vec3 aS;
 uniform highp sampler2D uSys, uEdge; uniform lowp sampler2D uBok; uniform mat4 uProj; uniform mat3 uRot; uniform vec3 uCam; uniform vec2 uTan;
-uniform float uPass, uPx, uTime, uFloor, uOff, uFade;
+uniform float uPass, uPx, uTime, uFloor, uFade; uniform vec2 uOff;
 out vec2 vQ; out vec3 vCol; out float vSeed, vA, vKind;
 void cull(){ gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vA = 0.0; }
 void main(){
@@ -400,7 +439,7 @@ void main(){
     if (vA < 0.004) { cull(); return; }
     r = 1.25*p.z/uPx;
   }
-  if (abs(p.x) - r > p.z*uTan.x*(1.02 + uOff) || abs(p.y) - r > p.z*uTan.y*1.02) { cull(); return; }   // off screen
+  if (abs(p.x) - r > p.z*uTan.x*(1.02 + uOff.x) || abs(p.y) - r > p.z*uTan.y*(1.02 + uOff.y)) { cull(); return; }   // off screen
   gl_Position = uProj*vec4(p.x + aC.x*r, p.y + aC.y*r, -p.z, 1.0);
 }`;
 const FS = `#version 300 es
@@ -490,7 +529,7 @@ void main(){
 // shift). Each is a small hard dot, and one in fourteen is a four-point mark. None flickers.
 const VS_PT = `#version 300 es
 layout(location=0) in vec4 aP; layout(location=1) in vec4 aK;
-uniform mat3 uRot; uniform vec3 uCam; uniform vec2 uTan; uniform float uPx, uDpr, uSky, uOff, uFade;
+uniform mat3 uRot; uniform vec3 uCam; uniform vec2 uTan, uOff; uniform float uPx, uDpr, uSky, uFade;
 out vec3 vCol; out float vMark;
 void main(){
   vec3 p = uRot*(uSky > 0.5 ? aP.xyz : aP.xyz - uCam);
@@ -500,7 +539,7 @@ void main(){
   vMark = step(0.93, fract(aK.a*7.3));
   vCol = aK.rgb*b*uFade*(1.0 + 0.5*vMark);
   gl_PointSize = clamp(s, uDpr, 2.4*uDpr)*(1.7 + 3.0*vMark);
-  gl_Position = vec4(p.x/(p.z*uTan.x) + uOff, p.y/(p.z*uTan.y), 0.0, 1.0);
+  gl_Position = vec4(p.x/(p.z*uTan.x) + uOff.x, p.y/(p.z*uTan.y) + uOff.y, 0.0, 1.0);
 }`;
 const FS_PT = `#version 300 es
 precision highp float;
@@ -559,7 +598,7 @@ void main(){
   pos += d*max(-b - sqrt(disc), 0.0);
   vec3 vel = d, hv = cross(pos, vel); float h2 = dot(hv, hv);
   vec4 acc = vec4(0.0);
-  for (int k = 0; k < 64; k++) {
+  for (int k = 0; k < ${TOUCH ? 40 : 64}; k++) {
     float r2 = dot(pos, pos), r = sqrt(r2);
     if (r < 1.0) { acc.a = 1.0; break; }                            // into the hole: black
     if (r > RB*1.02 && dot(pos, vel) > 0.0) break;                  // out again
@@ -955,8 +994,8 @@ function link(i) {
 }
 function reset() { fig = { cluster: 0, codes: [], name: '', addr: '' }; drawing = false; save(); makeLabels(); renderFig(); wake(); }
 // The constellation's card stays open while you click around the map, until it is closed (its menu entry opens and closes it).
-function openFig() { if (jumping) return; $('figCard').hidden = false; renderFig(); }
-function closeFig() { $('figCard').hidden = true; renderFig(); }
+function openFig() { if (jumping) return; if (PHONE.matches) openPanel(false); $('figCard').hidden = false; renderFig(); syncSheets(); wake(); }
+function closeFig() { $('figCard').hidden = true; renderFig(); syncSheets(); wake(); }
 // the view that holds the whole figure, travelling to its cluster first
 function showFig() {
   if (jumping || drawing || fig.codes.length < FIG_MIN) return;
@@ -979,7 +1018,7 @@ function savePicture() {
 const cam = { T: [0, 1, 0], dist: 420, yaw: 0.5, pitch: 0.42 }, aim = { dist: HOME, yaw: 0.5, pitch: 0.42 };
 const view = { pos: [0, 0, 0], right: [1, 0, 0], up: [0, 1, 0], fwd: [0, 0, -1], rot: new Float32Array(9) };
 let C = null, HOMEC = null, fars = [], fade = 1, jumping = false;
-let offX = 0, offAim = 0, follow = { k: 'cairn' }, travel = null, lastInput = 0, raf = 0, last = 0, t = 0, ready = false, stageW = 1, stageH = 1, sel = -1, hover = null;
+let offX = 0, offAim = 0, offY = 0, offYAim = 0, follow = { k: 'cairn' }, travel = null, lastInput = 0, raf = 0, last = 0, t = 0, ready = false, stageW = 1, stageH = 1, sel = -1, hover = null;
 // What the view looks at. 'pin' is what a scroll leaves behind: the point P of the map that was under the pointer stays
 // under it while the distance changes, which it does when the looked-at point is P + v * distance.
 const targetOf = f => f.k === 'sys' ? C.sys[f.i].at : f.k === 'obj' ? posOf(C, f.idx) : f.k === 'point' ? f.p : f.k === 'pin' ? f.P.map((x, i) => x + f.v[i] * cam.dist) : [0, 1, 0];
@@ -1035,7 +1074,7 @@ function jumpStep(e) {
 }
 const atHome = then => travelTo(0, then);     // do something that belongs to the cairn's cluster, going there first
 function rayAt(cx, cy) {
-  const ty = Math.tan(FOV / 2), tx = ty * stageW / stageH, x = (cx / stageW * 2 - 1 - offX) * tx, y = (1 - cy / stageH * 2) * ty;
+  const ty = Math.tan(FOV / 2), tx = ty * stageW / stageH, x = (cx / stageW * 2 - 1 - offX) * tx, y = (1 - cy / stageH * 2 - offY) * ty;
   return norm(view.fwd.map((v, i) => v + view.right[i] * x + view.up[i] * y));
 }
 const sizeOnScreen = s => s.Rs * (stageH / 2 / Math.tan(FOV / 2)) / Math.hypot(s.at[0] - view.pos[0], s.at[1] - view.pos[1], s.at[2] - view.pos[2]);
@@ -1083,11 +1122,18 @@ function clickAt(cx, cy) {
 // ---- the panels
 let pieceFor = null;
 function showView(name) { for (const v of ['list', 'sys', 'cairn', 'mint']) $('v-' + v).hidden = v !== name; if (name !== 'sys') sel = -1; syncPiece(); }
-function openPanel(yes) { $('panel').hidden = !yes; $('openPanel').hidden = yes; setOff(); syncPiece(); wake(); }
+function openPanel(yes) { if (yes && PHONE.matches && !$('figCard').hidden) { $('figCard').hidden = true; renderFig(); } $('panel').hidden = !yes; $('openPanel').hidden = yes; syncSheets(); syncPiece(); wake(); }
 // The panel floats over the map's right side, so while it shows, the middle of the view (where what you travel to comes
 // to rest) is the middle of the map that is left: offX shifts the whole picture left by half the panel's width, in the
 // view's own units (the stage is 2 wide).
-function setOff() { offAim = $('panel').hidden ? 0 : -($('panel').offsetWidth + 14) / stageW; }
+function setOff() {
+  if (PHONE.matches) {                               // a phone: the sheet open at the bottom moves the middle up by the share it covers
+    const sh = !$('panel').hidden ? $('panel') : !$('figCard').hidden ? $('figCard') : null;
+    offAim = 0; offYAim = sh ? Math.min(0.6, sh.offsetHeight / stageH) : 0;
+  } else { offYAim = 0; offAim = $('panel').hidden ? 0 : -($('panel').offsetWidth + 14) / stageW; }
+}
+// one sheet at a time on a phone; the buttons in the corners give way while one is open
+function syncSheets() { $('app').classList.toggle('sheet', PHONE.matches && (!$('panel').hidden || !$('figCard').hidden)); setOff(); }
 // The piece itself, moving, in the panel of the system that is drawn from it. It runs only while that panel shows.
 function syncPiece() {
   const want = C && !$('panel').hidden && !$('v-sys').hidden && sel >= 0 ? C.sys[sel] : null;
@@ -1117,16 +1163,18 @@ function el(tag, props, ...kids) { const e = Object.assign(document.createElemen
 // The constellation's panel and the menu, from where your constellation stands: not begun, being drawn, drawn and waiting
 // for a name and an address, or left in its cluster (this one or another).
 function renderFig() {
+  $('figCard').classList.toggle('drawing', drawing);
   const n = fig.codes.length, box = $('figDo'), here = fig.cluster === C.n, has = n >= FIG_MIN && !drawing, left = has && !!fig.name && !!fig.addr, others = othersHere();
   $('count').textContent = drawing ? `${n} linked` : left ? 'done' : '';
-  $('carry').textContent = drawing ? `Drawing a constellation: ${n} ${n === 1 ? 'system' : 'systems'} linked. Click a system to link it.` : '';
+  $('carry').textContent = drawing ? `Drawing a constellation: ${n} ${n === 1 ? 'system' : 'systems'} linked. ${TOUCH ? 'Tap' : 'Click'} a system to link it.` : '';
   $('navFig').hidden = !left || !$('figCard').hidden; $('figName').textContent = fig.name;      // (while the card is open, its own button shows the figure)
   const list = () => el('ol', { className: 'fig' }, ...fig.codes.map(c => el('li', {}, c)));
   const room = others.length >= FIG_CAP ? el('div', {}, el('p', { className: 'dim' }, `This cluster already holds ${FIG_CAP} constellations, which is as many as a cluster keeps.`), el('button', { type: 'button', className: 'btn', onclick: findRoom }, 'Travel to the nearest cluster with room'))
     : el('button', { type: 'button', className: has ? 'link' : 'btn', onclick: startDrawing }, has ? (here ? 'Draw it again' : `Draw a new one here, in ${clusterName(C.n)}`) : 'Draw a constellation here');
   const kept = others.length ? [el('p', { className: 'dim' }, `${others.length} of ${FIG_CAP} constellations are kept in this cluster. Point at a system to see the ones it belongs to.`)] : [];
   if (drawing) box.replaceChildren(
-    el('p', {}, `Click a system on the map to add it to the figure, and click the last one again to take it off. The figure needs at least ${FIG_MIN} systems and can have ${FIG_MAX}. You can still drag and scroll to look around.`),
+    el('p', {}, TOUCH ? `Tap a system on the map to add it to the figure, and tap the last one again to take it off. The figure needs at least ${FIG_MIN} systems and can have ${FIG_MAX}. You can still drag and pinch to look around.`
+      : `Click a system on the map to add it to the figure, and click the last one again to take it off. The figure needs at least ${FIG_MIN} systems and can have ${FIG_MAX}. You can still drag and scroll to look around.`),
     n ? list() : el('p', { className: 'dim' }, 'No system is linked yet.'),
     el('div', { className: 'row' },
       el('button', { type: 'button', className: 'btn', disabled: n < FIG_MIN, onclick: () => { drawing = false; makeLabels(); renderFig(); showFig(); } }, 'Done'),
@@ -1198,16 +1246,16 @@ function makeLabels() {
 // where a point of the map is on the stage, in CSS pixels, and how far in front of you
 function toScreen(p) {
   const ty = Math.tan(FOV / 2), tx = ty * stageW / stageH, w = [p[0] - view.pos[0], p[1] - view.pos[1], p[2] - view.pos[2]], z = dot(w, view.fwd);
-  return { x: (dot(w, view.right) / (z * tx) + offX + 1) / 2 * stageW, y: (1 - dot(w, view.up) / (z * ty)) / 2 * stageH, z };
+  return { x: (dot(w, view.right) / (z * tx) + offX + 1) / 2 * stageW, y: (1 - dot(w, view.up) / (z * ty) - offY) / 2 * stageH, z };
 }
 function placeLabels() {
-  const key = `${offX.toFixed(4)}|${view.pos.map(v => v.toFixed(3))}|${cam.yaw.toFixed(4)}|${cam.pitch.toFixed(4)}|${stageW}|${stageH}|${sel}|${hoverId(hover)}|${fade.toFixed(2)}|${jumping}`;
+  const key = `${offX.toFixed(4)}|${offY.toFixed(4)}|${view.pos.map(v => v.toFixed(3))}|${cam.yaw.toFixed(4)}|${cam.pitch.toFixed(4)}|${stageW}|${stageH}|${sel}|${hoverId(hover)}|${fade.toFixed(2)}|${jumping}`;
   if (key === labelKey) return; labelKey = key;
   const ppu = stageH / 2 / Math.tan(FOV / 2), farSee = smooth(1300, 2600, cam.dist);
   const all = labels.map(l => {
     const { x, y, z } = toScreen(l.s ? l.s.at : l.far ? l.far.pos : l.fig || [0, 2.2, 0]), size = (l.s ? l.s.Rs : l.far ? 600 : 2) * ppu / z;
     const on = !l.fig && ((!!hover && hover.k === l.hit.k && hover.i === l.hit.i && hover.j === l.hit.j) || (!!l.s && sel === l.s.i));
-    const can = l.far ? farSee > 0.05 && !jumping : fade > 0.6 && (l.of ? !!hover && hover.k === 'sys' && l.of.includes(C.sys[hover.i]) : l.s || l.fig ? cam.dist < 2400 : z < 700);
+    const can = l.far ? farSee > 0.05 && !jumping : fade > 0.6 && (l.of ? (h => !!h && l.of.includes(h))(hover && hover.k === 'sys' ? C.sys[hover.i] : sel >= 0 ? C.sys[sel] : null) : l.s || l.fig ? cam.dist < 2400 : z < 700);
     return { l, x, y, z, on, opacity: l.far ? 0.75 * farSee : l.fig ? 0.95 : clamp(1.5 - z / 650, 0.3, 0.8),
       show: can && z > 0.5 && x > -40 && x < stageW + 10 && y > 0 && y < stageH + 10 && size < 0.42 * Math.min(stageW, stageH) };
   }).sort((a, b) => b.on - a.on || !!b.l.fig - !!a.l.fig || a.z - b.z);
@@ -1327,7 +1375,7 @@ function step(now, dt) {
     if (k >= 1) { const done = travel.done; aim.dist = Math.exp(travel.l1); travel = null; if (done) done(); }
   } else { cam.dist += (aim.dist - cam.dist) * ease(6, dt); cam.T = targetOf(follow).slice(); }
   cam.yaw += (aim.yaw - cam.yaw) * ease(8, dt); cam.pitch += (aim.pitch - cam.pitch) * ease(8, dt);
-  offX += (offAim - offX) * ease(6, dt);
+  offX += (offAim - offX) * ease(6, dt); offY += (offYAim - offY) * ease(6, dt);
 }
 function frame(now) {
   raf = requestAnimationFrame(frame);
@@ -1339,7 +1387,7 @@ function frame(now) {
 function draw() {
   updateView();
   const w = canvas.width, h = canvas.height, ty = Math.tan(FOV / 2), tx = ty * w / h, f = 1 / ty, n = clamp(cam.dist * 0.02, 0.004, 4), fa = 60000;
-  const proj = new Float32Array([f * h / w, 0, 0, 0, 0, f, 0, 0, -offX, 0, (fa + n) / (n - fa), -1, 0, 0, 2 * fa * n / (n - fa), 0]);
+  const proj = new Float32Array([f * h / w, 0, 0, 0, 0, f, 0, 0, -offX, -offY, (fa + n) / (n - fa), -1, 0, 0, 2 * fa * n / (n - fa), 0]);
   const dpr = w / stageW, px = h / 2 * f, o = view.pos;
   gl.viewport(0, 0, w, h); gl.clearColor(0, 0, 0, 1); gl.depthMask(true); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   // the ground, then the stars beyond, the other clusters and this cluster's far stars, all added up over it
@@ -1347,7 +1395,7 @@ function draw() {
   gl.useProgram(P_GROUND.p); gl.uniform1f(P_GROUND.u.uDpr, dpr); gl.bindVertexArray(groundVao); gl.drawArrays(gl.TRIANGLES, 0, 3);
   gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
   gl.useProgram(P_PT.p); gl.uniformMatrix3fv(P_PT.u.uRot, false, view.rot); gl.uniform3fv(P_PT.u.uCam, o); gl.uniform2f(P_PT.u.uTan, tx, ty);
-  gl.uniform1f(P_PT.u.uPx, px); gl.uniform1f(P_PT.u.uDpr, dpr); gl.uniform1f(P_PT.u.uOff, offX);
+  gl.uniform1f(P_PT.u.uPx, px); gl.uniform1f(P_PT.u.uDpr, dpr); gl.uniform2f(P_PT.u.uOff, offX, offY);
   gl.uniform1f(P_PT.u.uSky, 1); gl.uniform1f(P_PT.u.uFade, 1); gl.bindVertexArray(skyVao); gl.drawArrays(gl.POINTS, 0, SKY);
   let np = 0;
   const plane = (p, R, u, v, kind, alpha, col, ph) => { planes.set([p[0], p[1], p[2], R, u[0], u[1], u[2], kind, v[0], v[1], v[2], alpha, col[0], col[1], col[2], ph], np * 16); np++; };
@@ -1361,7 +1409,7 @@ function draw() {
   const seen = [];
   for (const s of C.sys) {
     const wv = [s.at[0] - o[0], s.at[1] - o[1], s.at[2] - o[2]], z = dot(wv, view.fwd), dc = Math.hypot(...wv), R = s.Rs * 1.25;
-    if (z < -R || Math.abs(dot(wv, view.right)) > Math.max(z, 0) * tx * (1 + Math.abs(offX)) + R * 1.5 || Math.abs(dot(wv, view.up)) > Math.max(z, 0) * ty + R * 1.5) continue;
+    if (z < -R || Math.abs(dot(wv, view.right)) > Math.max(z, 0) * tx * (1 + Math.abs(offX)) + R * 1.5 || Math.abs(dot(wv, view.up)) > Math.max(z, 0) * ty * (1 + Math.abs(offY)) + R * 1.5) continue;
     const spx = s.Rs * px / dc, part = clamp(Math.pow(spx / dpr / 170, 1.1), 0.06, 1), count = Math.round(s.count * part);
     seen.push({ s, dc, n: s.special + count, floor: 0.11 * Math.PI / count, sharp: s.maxSize * px / Math.max(dc - s.Rs, 0.01) >= 1 });
   }
@@ -1377,7 +1425,7 @@ function draw() {
   gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, C.sysTex); gl.uniform1i(P_STONE.u.uSys, 0);
   gl.uniformMatrix4fv(P_STONE.u.uProj, false, proj); gl.uniformMatrix3fv(P_STONE.u.uRot, false, view.rot); gl.uniform3fv(P_STONE.u.uCam, o);
   gl.uniform2f(P_STONE.u.uTan, tx, ty); gl.uniform1f(P_STONE.u.uPx, px); gl.uniform1f(P_STONE.u.uTime, t);
-  gl.uniform1f(P_STONE.u.uOff, Math.abs(offX)); gl.uniform1f(P_STONE.u.uFade, fade);
+  gl.uniform2f(P_STONE.u.uOff, Math.abs(offX), Math.abs(offY)); gl.uniform1f(P_STONE.u.uFade, fade);
   stones(0, q => q.sharp);
   // the black holes with their discs, over whatever lies behind them and under whatever passes in front
   for (const { s, dc } of seen) if (s.centre === 'hole' && HOLE_R * px / dc > 3) plane(s.at, HOLE_R, s.nrm, s.disc[0], s.seed, fade, s.disc[1], HOLE_RS);
@@ -1399,7 +1447,7 @@ function draw() {
   // The constellations of this cluster. Yours in red: its systems ringed, and while it is being drawn the system under the
   // pointer too, faintly. Other people's pale and faint, and in full while you point at one of their systems.
   const nodes = figSys(), hot = hover && hover.k === 'sys' ? C.sys[hover.i] : null, next = drawing && hot && nodes.length < FIG_MAX && !nodes.includes(hot) ? hot : null;
-  const theirs = othersHere().map(f => { const q = sysOf(f.codes); return { q, al: hot && q.includes(hot) ? 0.9 : 0.22 }; });
+  const lit = hot || (sel >= 0 ? C.sys[sel] : null), theirs = othersHere().map(f => { const q = sysOf(f.codes); return { q, al: lit && q.includes(lit) ? 0.9 : 0.22 }; });
   if (C.home) glow([0, 1.95, 0], 0.22, LANTERN, fade, 3);
   for (const f of theirs) for (const s of f.q) glow(s.at, s.Rs * 1.28, PALE, fade * f.al * 0.8, 10, 3);
   for (const s of nodes) glow(s.at, s.Rs * 1.28, RED, fade, 10, 3);
@@ -1419,7 +1467,7 @@ function draw() {
       if (a.p[2] < zn && b.p[2] < zn) continue;
       if (a.p[2] < zn) a = { p: a.p.map((x, i) => x + (b.p[i] - x) * (zn - a.p[2]) / (b.p[2] - a.p[2])), r: 0 };       // an end behind you: the line starts at the edge of sight
       if (b.p[2] < zn) b = { p: b.p.map((x, i) => x + (a.p[i] - x) * (zn - b.p[2]) / (a.p[2] - b.p[2])), r: 0 };
-      let ax = (a.p[0] / (a.p[2] * tx) + offX) * w / 2, ay = a.p[1] / (a.p[2] * ty) * h / 2, bx = (b.p[0] / (b.p[2] * tx) + offX) * w / 2, by = b.p[1] / (b.p[2] * ty) * h / 2;
+      let ax = (a.p[0] / (a.p[2] * tx) + offX) * w / 2, ay = (a.p[1] / (a.p[2] * ty) + offY) * h / 2, bx = (b.p[0] / (b.p[2] * tx) + offX) * w / 2, by = (b.p[1] / (b.p[2] * ty) + offY) * h / 2;
       const len = Math.hypot(bx - ax, by - ay); if (len < a.r + b.r + 2) continue;
       const ux = (bx - ax) / len, uy = (by - ay) / len, hw = 0.6 * dpr, nx = -uy * hw, ny = ux * hw;
       ax += ux * a.r; ay += uy * a.r; bx -= ux * b.r; by -= uy * b.r;
@@ -1452,7 +1500,15 @@ function pieceFromDisk() {
   });
 }
 // The menu's entries have nowhere to go yet. The mark leaves a frame (the shared copy is shown inside one) in a new tab.
-for (const a of document.querySelectorAll('#bar a[href="#"]')) a.onclick = e => e.preventDefault();
+for (const a of document.querySelectorAll('#bar a[href="#"], .site-links a[href="#"]')) a.onclick = e => e.preventDefault();
+// the menu on a phone: opened by its button, closed by choosing anything in it or by touching outside it
+function menu(open) { $('side').classList.toggle('open', open); $('menuBtn').setAttribute('aria-expanded', String(open)); }
+$('menuBtn').onclick = e => { e.stopPropagation(); menu(!$('side').classList.contains('open')); };
+for (const b of document.querySelectorAll('#side nav > button, .site-links a:not(.later)')) b.addEventListener('click', () => { if (PHONE.matches) menu(false); });
+addEventListener('pointerdown', e => { if ($('side').classList.contains('open') && !e.target.closest('#side nav, #menuBtn')) menu(false); });
+new ResizeObserver(setOff).observe($('panel')); new ResizeObserver(setOff).observe($('figCard'));
+if (PHONE.matches) openPanel(false);                 // (a phone starts with the map alone)
+PHONE.addEventListener('change', () => { if (PHONE.matches) { menu(false); if (!$('panel').hidden && !$('figCard').hidden) openPanel(false); } syncSheets(); wake(); });
 $('conn').onclick = onConn;
 $('disconnect').onclick = disconnect;
 addEventListener('click', e => { if (!$('connMenu').hidden && !$('connMenu').contains(e.target)) connMenu(false); });
