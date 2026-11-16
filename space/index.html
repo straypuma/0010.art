@@ -1036,15 +1036,16 @@ document.addEventListener('visibilitychange', () => document.hidden ? chatDrop()
 function onChat(m) {
   if (m.t === 'hist') { chat.msgs = m.msgs || []; renderChatLog(true); }
   else if (m.t === 'msg') { chat.msgs.push(m.m); if (chat.msgs.length > 300) chat.msgs.shift(); if (chat.authed && m.m.by === chat.by) chat.sent = ''; renderChatLog(); }
-  else if (m.t === 'del') { chat.msgs = chat.msgs.filter(x => !m.ids.includes(x.id)); renderChatLog(); }
   else if (m.t === 'here') { chat.here = m.n; renderHere(); }
+  else if (m.t === 'del') { chat.msgs = chat.msgs.filter(x => !m.ids.includes(x.id)); renderChatLog(); }
   else if (m.t === 'auth') { chat.authed = !!m.ok; chat.name = m.name || ''; chat.by = m.by || ''; chat.err = m.ok ? '' : m.error || ''; if (m.resign) keepSig(null); renderChatLog(); renderChatFoot(); }
   else if (m.t === 'err') {           // (a message refused: its text goes back into the field)
     chat.err = m.error || ''; if (m.resign) { keepSig(null); chat.authed = false; }
     if (chat.sent && !chatIn.value) chatIn.value = chat.sent; chat.sent = ''; renderChatFoot();
   }
 }
-function renderHere() { $('chatHere').textContent = !chat.here ? '' : chat.here === 1 ? 'Only you have the chat open.' : `${chat.here} people have the chat open.`; }
+// how many have the chat open, this page included (the server says so whenever a connection opens or closes)
+function renderHere() { $('chatHere').textContent = chat.here ? `${chat.here.toLocaleString('en-US')} online` : ''; }
 function markChat() { $('chatBtn').classList.toggle('new', !chatOpen() && chat.last > chat.seen); }
 // the messages, oldest first; one under another by the same address within five minutes goes without its name. The log stays
 // at its newest message unless it was scrolled up (stick), also when the lines around it change its height.
