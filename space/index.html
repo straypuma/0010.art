@@ -807,7 +807,7 @@ const figSys = () => fig.cluster === C.n ? sysOf(fig.codes) : [];      // your f
 const othersHere = () => shared.get(C.n) || [];
 // ---- the wallet and the server. Nothing is asked of either until the visitor clicks connect or leaves a constellation,
 // except the constellations of the cluster you arrive in and how full each cluster is, which are fetched once on arrival.
-let wallet = '', counts = {}, countsAt = 0;
+let wallet = '', counts = {}, countsAt = 0, total = null, seen = null, watchT = 0;   // (seen: the cluster and its change counter, as last loaded)
 const shortAddr = a => a.length > 20 ? a.slice(0, 6) + '…' + a.slice(-4) : a;
 const ask = (path, init) => fetch(API + path, init).then(async r => ({ ok: r.ok, body: await r.json().catch(() => ({})) }), () => ({ ok: false, body: {} }));
 async function connect() {
@@ -838,12 +838,12 @@ async function disconnect() {
 // how full every cluster is, asked again at most once a minute (or at once, with fresh)
 async function loadCounts(fresh) {
   if (!API || (!fresh && Date.now() - countsAt < 60e3)) return;
-  const all = await ask('/clusters'); if (all.ok) { counts = all.body.counts || {}; countsAt = Date.now(); }
+  const all = await ask('/clusters'); if (all.ok) { counts = all.body.counts || {}; countsAt = Date.now(); total = Object.values(counts).reduce((a, b) => a + b, 0); }
   renderCount();
 }
 // how many constellations have been drawn on the whole map, in the corner (a click opens the constellation's card)
 function renderCount() {
-  const n = Object.values(counts).reduce((a, b) => a + b, 0), e = $('figCount');
+  const n = total ?? Object.values(counts).reduce((a, b) => a + b, 0), e = $('figCount');
   e.hidden = !countsAt; e.textContent = `${n.toLocaleString('en-US')} ${n === 1 ? 'constellation' : 'constellations'} drawn`;
 }
 // on arriving in a cluster: the constellations other people left there, and how full every cluster is
@@ -851,9 +851,29 @@ async function arrive() {
   makeLabels(); renderFig(); wake();
   if (!API) return;
   const n = C.n, [here] = await Promise.all([ask('/clusters/' + n), loadCounts()]);
-  if (here.ok) shared.set(n, (here.body.figs || []).filter(f => !(fig.cluster === n && fig.addr && f.by === shortAddr(fig.addr))));
-  makeLabels(); renderFig(); wake();
+  if (here.ok && C.n === n) { shared.set(n, (here.body.figs || []).filter(f => !(fig.cluster === n && fig.addr && f.by === shortAddr(fig.addr)))); seen = { c: n, v: here.body.v || 0 }; }
+  makeLabels(); renderFig(); wake(); watch();
 }
+// While the tab is in sight, the page asks the server every 20 seconds whether anything has changed (two rows read). When
+// the cluster you are in has, it loads its constellations again; the count in the corner follows the whole map; the
+// other clusters' counts are asked again (at most once a minute) only while they are in sight. Nothing runs while the
+// tab is hidden.
+const WATCH_MS = (+Q.get('watch') || 20) * 1000;
+function watch() {
+  clearTimeout(watchT); watchT = 0;
+  if (!API || document.hidden) return;
+  watchT = setTimeout(async () => {
+    watchT = 0; if (document.hidden) return;
+    const n = C.n, r = await ask('/version?c=' + n);
+    if (r.ok) {
+      total = r.body.total; counts[n] = r.body.n; renderCount();
+      if (seen && seen.c === n && r.body.cv !== seen.v && !jumping) { await arrive(); return; }   // (arrive watches again)
+      if (cam.dist > 1200) { await loadCounts(); makeLabels(); }
+    }
+    watch();
+  }, WATCH_MS);
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) { clearTimeout(watchT); watchT = 0; } else if (ready) watch(); });
 // travel to the nearest cluster that still has room for a constellation, and open the constellation's card there
 async function findRoom() {
   if (jumping) return;
