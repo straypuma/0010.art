@@ -100,6 +100,14 @@
   #tools button:hover, .open:hover { background: #2a2b31; }
   .open { position: absolute; top: 64px; }
   #openPanel { right: calc(12px + env(safe-area-inset-right, 0px)); }
+  /* when a constellation has been left: a card in the middle of the map, with a way back to the map and a way to share it */
+  #doneBox { position: absolute; z-index: 6; left: calc(50% - var(--pw) / 2); top: 42%; translate: -50% -50%; width: min(380px, calc(100% - 32px)); padding: 20px 22px 18px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 14px 40px rgb(0 0 0 / .45); }
+  #doneBox h2 { margin: 0 0 10px; }
+  #doneBox p { margin: 0 0 16px; }
+  #doneBox .row { margin: 0; }
+  #doneBox .btn.x { border-color: var(--accent); }
+  #doneBox .btn.x:hover { background: rgb(224 101 92 / .16); }
   #toast { position: absolute; left: calc(50% - var(--pw) / 2); top: 64px; transform: translateX(-50%); max-width: min(420px, 80%);
     background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; text-align: center; }
   /* the right panel */
@@ -163,6 +171,11 @@
       <button type="button" id="figCount" title="Open the constellation" hidden></button>
     </div>
     <div id="toast" role="status" hidden></div>
+    <div id="doneBox" role="dialog" aria-labelledby="doneTitle" hidden>
+      <h2 id="doneTitle">Your constellation is on the map</h2>
+      <p id="doneText"></p>
+      <div class="row"><button class="btn" type="button" id="doneBack">Keep exploring</button><button class="btn x" type="button" id="doneShare">Share on X</button></div>
+    </div>
   </main>
   <aside id="panel">
     <section id="v-list">
@@ -904,6 +917,17 @@ function badName(name) {
   const joined = words.join('');
   return PHRASE.some(r => r.test(joined)) || (words.some(w => w.length === 1) && INSIDE.some(r => r.test(joined)));
 }
+// Once a constellation has been left: a card that says so, with "Keep exploring" (which shows the figure) and "Share on
+// X" (a post written for the visitor to send from their own account; the page only opens X's post form).
+function showDone() {
+  $('doneText').textContent = `${fig.name} links ${fig.codes.length} systems in ${clusterName(fig.cluster)}, and the address ${shortAddr(fig.addr)} is on the allowlist for the mint.`;
+  $('doneBox').hidden = false; $('doneBack').focus();
+}
+function closeDone(show) { $('doneBox').hidden = true; if (show) showFig(); }
+function shareDone() {
+  const text = `I drew a constellation called ${fig.name} on the map of Vigil by @0010_888, and my address is on the allowlist for the mint.`;
+  window.open(`https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent('https://0010.art/space/')}`, '_blank', 'noopener');
+}
 // leave the constellation with the server: the wallet signs a text that names it, and the server checks the signature
 async function leave(name, err) {
   const a = wallet || await connect();
@@ -914,7 +938,7 @@ async function leave(name, err) {
   catch { err.textContent = 'The constellation was not signed.'; return; }
   const { ok, body } = await ask('/constellation', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cluster: fig.cluster, codes: fig.codes, name, addr: a, time, sig }) });
   if (!ok) { err.textContent = body.error || 'The server could not be reached. Try again.'; return; }
-  fig.name = name; fig.addr = a; save(); countsAt = 0; arrive();
+  fig.name = name; fig.addr = a; save(); countsAt = 0; arrive(); showDone();
 }
 function startDrawing() {
   if (jumping || othersHere().length >= FIG_CAP) return;
@@ -1129,7 +1153,7 @@ function renderFig() {
         if (badName(nm)) { err.textContent = 'That name is not allowed here. Choose another.'; return; }
         if (API) { go.disabled = true; await leave(nm, err); go.disabled = false; return; }
         if (!/^0x[0-9a-fA-F]{40}$/.test(v) && !/^([a-z0-9-]+\.)+eth$/i.test(v)) { err.textContent = 'Enter an address that starts with 0x and has 40 more characters, or a name that ends in .eth.'; return; }
-        fig.name = nm; fig.addr = v; save(); makeLabels(); renderFig(); wake();
+        fig.name = nm; fig.addr = v; save(); makeLabels(); renderFig(); wake(); showDone();
       } }, el('label', { htmlFor: 'figNameIn' }, 'Name of the constellation'), name, ...(API ? [] : [el('label', { htmlFor: 'addr' }, 'Ethereum address or ENS name'), input]), err, go),
       room);
   }
@@ -1262,11 +1286,14 @@ canvas.addEventListener('pointerleave', () => { hoverXY = null; if (hover) { hov
 canvas.addEventListener('wheel', e => { e.preventDefault(); zoomAt(wantDist() * Math.exp(e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX - rect.left, e.clientY - rect.top); }, { passive: false });
 addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'Escape' && !$('doneBox').hidden) { closeDone(false); return; }
   if (e.key === 'Escape' && ready) toMap();
 });
 $('navMap').onclick = () => ready && toMap();
 $('navFar').onclick = () => ready && toFar();
 $('figCount').onclick = () => ready && openFig();
+$('doneBack').onclick = () => closeDone(true);
+$('doneShare').onclick = shareDone;
 $('hidePanel').onclick = () => openPanel(false); $('openPanel').onclick = () => openPanel(true);
 for (const b of document.querySelectorAll('[data-hide]')) b.onclick = () => openPanel(false);
 for (const b of document.querySelectorAll('[data-back]')) b.onclick = () => showView('list');
