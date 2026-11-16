@@ -131,6 +131,7 @@
   #chatFoot form { flex-direction: row; margin: 0; }
   #chatIn { flex: 1; min-width: 0; background: var(--btn); border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; }
   #chatFoot .err:not(:empty) { margin-top: 6px; }
+  #chatFoot .nw { white-space: nowrap; }   /* (the address kept on one line) */
   /* the right panel */
   #filter, #addr { width: 100%; background: var(--btn); border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; }
   #rows { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
@@ -925,7 +926,7 @@ async function connect() {
   $('conn').textContent = wallet ? shortAddr(wallet) : 'connect';
   if (API && wallet) {                                 // the constellation this address left earlier, from another browser perhaps
     const { ok, body } = await ask('/me?addr=' + wallet);
-    if (ok && body.fig && !drawing && (fig.addr !== wallet || fig.codes.join() !== body.fig.codes.join() || fig.cluster !== body.fig.cluster)) { fig = { ...body.fig, addr: wallet }; save(); arrive(); }
+    if (ok && body.fig && !drawing && (fig.addr !== wallet || fig.codes.join() !== body.fig.codes.join() || fig.cluster !== body.fig.cluster || fig.name !== body.fig.name)) { fig = { ...body.fig, addr: wallet }; save(); arrive(); }
   }
   renderFig(); return wallet;
 }
@@ -960,6 +961,10 @@ async function arrive() {
   makeLabels(); renderFig(); wake();
   if (!API) return;
   const n = C.n, [here] = await Promise.all([ask('/clusters/' + n), loadCounts()]);
+  if (here.ok && C.n === n && !drawing && fig.cluster === n && fig.addr) {      // (your constellation renamed on the server: the name it has there)
+    const mine = (here.body.figs || []).find(f => f.by === shortAddr(fig.addr));
+    if (mine && fig.name && mine.name !== fig.name) { fig.name = mine.name; save(); }
+  }
   if (here.ok && C.n === n) { shared.set(n, (here.body.figs || []).filter(f => !(fig.cluster === n && fig.addr && f.by === shortAddr(fig.addr)))); seen = { c: n, v: here.body.v || 0 }; }
   refreshFars(); makeLabels(); renderFig(); wake(); watch();
 }
@@ -1002,15 +1007,18 @@ const hexText = t => '0x' + [...new TextEncoder().encode(t)].map(b => b.toString
 // each new one as it is written, and a ping every 45 seconds keeps it from being dropped as idle. While the card is closed,
 // nothing of the chat runs: the 20-second check of the map (watch) also gives the last message's number, and the chat
 // button shows a dot while that is newer than the last message seen in this browser. To write, an address on the allowlist
-// signs a short text once a day; the signature is kept in this browser for that day.
+// shows the server a signature it made: the one made when it left its constellation in this browser (kept for the chat
+// when it was left), or else a short text signed once. It is kept in this browser and does not run out.
 const CHAT_KEY = 'vigil-chat', CHAT_MAX = 280;
-const chatText = (addr, time) => `Vigil chat\nSigning lets this address write in the chat on 0010.art/space for a day.\nAddress: ${addr}\nTime: ${time}`;   // (the server's text, the same)
+const chatText = (addr, time) => `Vigil chat\nSigning lets this address write in the chat on 0010.art/space.\nAddress: ${addr}\nTime: ${time}`;   // (the server's text, the same)
 const chat = { ws: null, msgs: [], stick: true, authed: false, name: '', by: '', err: '', here: 0, tries: 0, retry: 0, ping: 0, last: 0, seen: 0, sig: null, sent: '', foot: '' };
 try { chat.seen = +localStorage.getItem(CHAT_KEY + '-seen') || 0; chat.sig = JSON.parse(localStorage.getItem(CHAT_KEY)); } catch {}
 const chatOpen = () => !$('chat').hidden;
-// the day's signature, if it is for the address connected (or for any address while none is)
-const chatSig = () => { const s = chat.sig; return s && Date.now() - Date.parse(s.time) < 23.5 * 3600e3 && (!wallet || wallet === s.addr) ? s : null; };
+// the signature kept for the chat, if it is for the address connected (or for any address while none is)
+const chatSig = () => { const s = chat.sig; return s && s.addr && s.sig && (!wallet || wallet === s.addr) ? s : null; };
 function keepSig(s) { chat.sig = s; try { s ? localStorage.setItem(CHAT_KEY, JSON.stringify(s)) : localStorage.removeItem(CHAT_KEY); } catch {} }
+// show it to the server, when the chat is connected and has not seen it yet
+function chatAuth() { const s = chatSig(); if (s && !chat.authed && chat.ws && chat.ws.readyState === 1) chat.ws.send(JSON.stringify({ t: 'auth', ...s })); }
 const chatWhen = t => { const d = new Date(t), hm = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }); return d.toDateString() === new Date().toDateString() ? hm : `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${hm}`; };
 function openChat() {
   if (!API || !ready) return;
@@ -1022,7 +1030,7 @@ function chatConnect() {
   if (!API || chat.ws || !chatOpen() || document.hidden) return;
   clearTimeout(chat.retry); chat.retry = 0;
   const ws = chat.ws = new WebSocket(API.replace(/^http/, 'ws') + '/chat');
-  ws.onopen = () => { chat.tries = 0; const s = chatSig(); if (s) ws.send(JSON.stringify({ t: 'auth', ...s })); chat.ping = setInterval(() => ws.send('ping'), 45e3); renderChatFoot(); };
+  ws.onopen = () => { chat.tries = 0; chatAuth(); chat.ping = setInterval(() => ws.send('ping'), 45e3); renderChatFoot(); };
   ws.onmessage = e => { if (e.data !== 'pong') try { onChat(JSON.parse(e.data)); } catch {} };
   ws.onclose = () => {           // (dropped by the network or the server: tried again while the card is open, after 1, 2, 4… 30 seconds)
     if (chat.ws !== ws) return;
@@ -1081,7 +1089,7 @@ function renderChatFoot() {
   const f = $('chatFoot'), btn = (text, onclick) => el('button', { type: 'button', className: 'btn', onclick }, text);
   if (state === 'wait' || state === 'lost') f.replaceChildren(el('p', { className: 'dim' }, state === 'wait' ? 'Connecting to the chat…' : 'The chat cannot be reached. Trying again…'));
   else if (state === 'in') { chatIn.placeholder = `Write as ${chat.name}`; f.replaceChildren(chatForm, chatErr); }
-  else if (state === 'sign') f.replaceChildren(el('p', {}, `Writing needs a signature from the wallet of ${shortAddr(fig.addr)} once a day. It costs nothing and sends no transaction.`), btn('Sign to write', chatSign), chatErr);
+  else if (state === 'sign') f.replaceChildren(el('p', {}, 'To write here from this browser, sign once with the wallet of ', el('span', { className: 'nw' }, shortAddr(fig.addr) + '.'), ' It costs nothing and sends no transaction.'), btn('Sign to write', chatSign), chatErr);
   else f.replaceChildren(el('p', {}, `Addresses on the allowlist can write here. Leave a constellation to add yours${state === 'out' ? '.' : ', or connect the wallet that left one.'}`),
     el('div', { className: 'row' }, btn('Constellation', openFig), ...(state === 'outw' ? [btn('Connect', connect)] : [])), chatErr);
 }
@@ -1091,8 +1099,7 @@ async function chatSign() {
   const time = new Date().toISOString(); let sig;
   try { sig = await window.ethereum.request({ method: 'personal_sign', params: [hexText(chatText(a, time)), a] }); }
   catch { chat.err = 'The chat was not signed.'; renderChatFoot(); return; }
-  keepSig({ addr: a, time, sig }); chat.err = '';
-  if (chat.ws && chat.ws.readyState === 1) chat.ws.send(JSON.stringify({ t: 'auth', addr: a, time, sig }));
+  keepSig({ addr: a, time, sig }); chat.err = ''; chatAuth();
 }
 // ---- names. The same lines are in server/src/worker.js, which refuses the name too.
 // Names that are refused: slurs, hate slogans, and explicit sexual words and the strongest swearing. The name is
@@ -1140,6 +1147,7 @@ async function leave(name, err) {
   const { ok, body } = await ask('/constellation', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cluster: fig.cluster, codes: fig.codes, name, addr: a, time, sig }) });
   if (!ok) { err.textContent = body.error || 'The server could not be reached. Try again.'; return; }
   fig.name = name; fig.addr = a; save(); countsAt = 0; arrive(); showDone(body.rank);
+  keepSig({ addr: a, time, sig, fig: { cluster: fig.cluster, codes: fig.codes.slice(), name } }); chat.authed = false; chatAuth();   // (the chat takes this signature too)
 }
 function startDrawing() {
   if (jumping || othersHere().length >= FIG_CAP) return;
