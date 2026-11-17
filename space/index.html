@@ -1357,7 +1357,6 @@ function renderFig() {
   const list = () => el('ol', { className: 'fig' }, ...fig.codes.map(c => el('li', {}, c)));
   const room = others.length >= FIG_CAP ? el('div', {}, el('p', { className: 'dim' }, `This cluster already holds ${FIG_CAP} constellations, which is as many as a cluster keeps.`), el('button', { type: 'button', className: 'btn', onclick: findRoom }, 'Travel to the nearest cluster with room'))
     : el('button', { type: 'button', className: has ? 'link' : 'btn', onclick: startDrawing }, has ? (here ? 'Draw it again' : `Draw a new one here, in ${clusterName(C.n)}`) : 'Draw a constellation here');
-  const kept = others.length ? [el('p', { className: 'dim' }, `${others.length} of ${FIG_CAP} constellations are kept in this cluster. Point at a system to see the ones it belongs to.`)] : [];
   if (drawing) box.replaceChildren(
     el('p', {}, TOUCH ? `Tap a system on the map to add it to the figure, and tap the last one again to take it off. The figure needs at least ${FIG_MIN} systems and can have ${FIG_MAX}. You can still drag and pinch to look around.`
       : `Click a system on the map to add it to the figure, and click the last one again to take it off. The figure needs at least ${FIG_MIN} systems and can have ${FIG_MAX}. You can still drag and scroll to look around.`),
@@ -1368,13 +1367,12 @@ function renderFig() {
       el('button', { type: 'button', className: 'btn', onclick: () => { drawing = false; fig.codes = []; save(); renderFig(); wake(); } }, 'Stop')));
   else if (!has) box.replaceChildren(
     el('p', {}, `You are in ${clusterName(C.n)}. A constellation is drawn in the cluster you are in, so to draw one in another cluster, travel there first.`),
-    el('div', { className: 'row' }, room), el('button', { type: 'button', className: 'link', onclick: () => { if (!jumping) go({ k: 'cairn' }, FAR_VIEW); } }, 'Show the other clusters'), ...kept);
+    el('div', { className: 'row' }, room), el('button', { type: 'button', className: 'link', onclick: () => { if (!jumping) go({ k: 'cairn' }, FAR_VIEW); } }, 'Show the other clusters'));
   else if (left) box.replaceChildren(
     el('p', {}, API ? `Your constellation ${fig.name} links ${n} systems in ${clusterName(fig.cluster)}, and the address ${shortAddr(fig.addr)} is on the allowlist with it.`
       : `Your constellation ${fig.name} links ${n} systems in ${clusterName(fig.cluster)}, and the address ${shortAddr(fig.addr)} is noted with it in this browser. This page has no server yet, so neither has been sent anywhere.`),
     list(),
-    el('div', { className: 'row' }, el('button', { type: 'button', className: 'btn', onclick: showFig }, here ? 'Show it' : `Travel to it`), ...(here ? [el('button', { type: 'button', className: 'btn', onclick: savePicture }, 'Save a picture')] : [])),
-    ...kept);
+    el('div', { className: 'row' }, el('button', { type: 'button', className: 'btn', onclick: showFig }, here ? 'Show it' : `Travel to it`), ...(here ? [el('button', { type: 'button', className: 'btn', onclick: savePicture }, 'Save a picture')] : [])));
   else if (!box.querySelector('form')) {
     const name = el('input', { id: 'figNameIn', type: 'text', maxLength: 28, value: fig.name, placeholder: 'The Lantern', autocomplete: 'off', spellcheck: false });
     const input = el('input', { id: 'addr', type: 'text', value: fig.addr, placeholder: '0x… or name.eth', autocomplete: 'off', spellcheck: false }), err = el('div', { className: 'err', role: 'alert' });
