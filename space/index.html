@@ -93,6 +93,7 @@
   #labels div.mark { color: var(--accent); }
   #labels .held { display: block; color: var(--dim); font-size: 10px; line-height: 1.2; }
   #labels .held.full { color: var(--accent); }
+  #whereHeld .full { color: var(--accent); }
   #status { position: absolute; left: calc(16px + env(safe-area-inset-left, 0px)); right: calc(210px + var(--pw)); bottom: calc(14px + env(safe-area-inset-bottom, 0px));
     pointer-events: none; color: var(--fg); opacity: .78; text-shadow: 0 0 3px #000, 0 0 10px #000; }
   #tools { position: absolute; right: calc(14px + var(--pw)); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 6px; }
@@ -235,7 +236,7 @@
     <canvas id="c"></canvas>
     <div id="labels"></div>
     <button class="open" id="openPanel" type="button" hidden>Systems</button>
-    <div id="status"><div id="where"></div><div id="carry"></div></div>
+    <div id="status"><div><span id="where"></span><span id="whereHeld"></span></div><div id="carry"></div></div>
     <div id="tools">
       <button type="button" id="figCount" title="Open the constellation" hidden></button>
       <button type="button" id="chatBtn" aria-controls="chat" aria-expanded="false" hidden>chat</button>
@@ -955,6 +956,7 @@ async function loadCounts(fresh) {
 function renderCount() {
   const n = total ?? Object.values(counts).reduce((a, b) => a + b, 0), e = $('figCount');
   e.hidden = !countsAt; e.textContent = `${n.toLocaleString('en-US')} ${n === 1 ? 'constellation' : 'constellations'} drawn`;
+  if (ready) placeText();                        // (the count after the place's name, while the map is still)
 }
 // on arriving in a cluster: the constellations other people left there, and how full every cluster is
 async function arrive() {
@@ -965,7 +967,7 @@ async function arrive() {
     const mine = (here.body.figs || []).find(f => f.by === shortAddr(fig.addr));
     if (mine && fig.name && mine.name !== fig.name) { fig.name = mine.name; save(); }
   }
-  if (here.ok && C.n === n) { shared.set(n, (here.body.figs || []).filter(f => !(fig.cluster === n && fig.addr && f.by === shortAddr(fig.addr)))); seen = { c: n, v: here.body.v || 0 }; }
+  if (here.ok && C.n === n) { counts[n] = (here.body.figs || []).length; shared.set(n, (here.body.figs || []).filter(f => !(fig.cluster === n && fig.addr && f.by === shortAddr(fig.addr)))); seen = { c: n, v: here.body.v || 0 }; }
   refreshFars(); makeLabels(); renderFig(); wake(); watch();
 }
 // While the tab is in sight, the page asks the server every 20 seconds whether anything has changed (three rows read). When
@@ -1453,6 +1455,7 @@ function placeLabels() {
     q.l.e.style.opacity = q.on ? 1 : q.opacity.toFixed(2); q.l.e.className = q.on ? 'on' : q.l.mine ? 'mark' : '';
   }
 }
+let heldShown = '';
 function placeText() {
   const d = cam.dist, free = follow.k === 'pin' || follow.k === 'point', off = Math.hypot(...cam.T);
   let s = follow.k === 'sys' ? C.sys[follow.i] : follow.k === 'obj' ? C.sys[C.PS[follow.idx * 3]] : null;
@@ -1463,6 +1466,9 @@ function placeText() {
     : C.home ? (free && off > 60 ? 'In the cairn\'s cluster' : d < 30 ? 'At the cairn' : d < 520 ? 'Near the cairn, at the center of its cluster' : 'The cairn\'s cluster')
     : d < 520 && !(free && off > 60) ? `Near the center of cluster ${C.n}` : `Cluster ${C.n}`;
   if ($('where').textContent !== text) $('where').textContent = text;
+  // after a line that names the cluster, how many constellations it holds, as in the list of clusters in sight
+  const n = counts[C.n] || 0, held = !jumping && !s && countsAt ? (n >= FIG_CAP ? 'full' : `${n} of ${FIG_CAP}`) : '';
+  if (held !== heldShown) { heldShown = held; $('whereHeld').replaceChildren(...held ? [' · ', el('span', { className: n >= FIG_CAP ? 'full' : '' }, held)] : []); }
 }
 
 // ---- input: a click (or tap) travels, a drag turns you around the point you look at, the wheel (or a pinch) zooms
