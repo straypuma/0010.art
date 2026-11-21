@@ -101,16 +101,6 @@
   #tools button:hover, .open:hover { background: #2a2b31; }
   .open { position: absolute; top: 64px; }
   #openPanel { right: calc(12px + env(safe-area-inset-right, 0px)); }
-  /* when a constellation has been left: a card in the middle of the map, with a way back to the map and a way to share it */
-  #doneBox { position: absolute; z-index: 6; left: calc(50% - var(--pw) / 2); top: 42%; translate: -50% -50%; width: min(380px, calc(100% - 32px)); padding: 20px 22px 18px;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 14px 40px rgb(0 0 0 / .45); }
-  #doneBox h2 { margin: 0 0 10px; }
-  #doneBox p { margin: 0 0 16px; }
-  #doneBox p b { color: var(--accent); font-weight: 600; white-space: nowrap; }
-  #doneBox p span { white-space: nowrap; }
-  #doneBox .row { margin: 0; }
-  #doneBox .btn.x { border-color: var(--accent); }
-  #doneBox .btn.x:hover { background: rgb(224 101 92 / .16); }
   #toast { position: absolute; left: calc(50% - var(--pw) / 2); top: 64px; transform: translateX(-50%); max-width: min(420px, 80%);
     background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 7px 12px; text-align: center; }
   /* the chat: a card over the map's lower right corner, above its button, open until it is hidden; the messages scroll,
@@ -174,10 +164,7 @@
     #side nav { position: absolute; top: calc(50px + env(safe-area-inset-top, 0px)); left: 12px; right: 12px; display: none; padding: 10px 16px; pointer-events: auto; text-shadow: none;
       background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 28px rgb(0 0 0 / .45); }
     #side.open nav { display: flex; }
-    #side nav > button { padding: 8px 0; font-size: 13px; }
-    #figCard.drawing > p:first-of-type { display: none; }   /* While drawing, the sheet keeps to the figure and its buttons, and keeps one */
-    #figCard.drawing { height: 44%; }                         /* height, so the map above it stays put while systems are tapped. */
-    .site-links { display: flex; flex-direction: column; align-items: flex-start; align-self: stretch; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 13px; }
+    #side nav > button { padding: 8px 0; font-size: 13px    .site-links { display: flex; flex-direction: column; align-items: flex-start; align-self: stretch; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 13px; }
     .site-links a { padding: 8px 0; color: var(--dim); text-decoration: none; }
     .site-links a[aria-current="page"] { color: var(--fg); }
     .site-links a.later::after { content: ' · soon'; }
@@ -193,7 +180,6 @@
     #app.sheet #tools, #app.sheet #openPanel { display: none; }
     @media (max-width: 399px) { #tools { flex-direction: column-reverse; align-items: flex-end; } }   /* (narrow phones: the chat button above the count, clear of "Systems") */
     #toast { top: calc(96px + env(safe-area-inset-top, 0px)); }
-    #doneBox { top: 30%; z-index: 7; }
     #labels div { font-size: 10px; }
   }
   @media (pointer: coarse) { input { font-size: 16px; } }   /* (phones zoom the page into a field with smaller type) */
@@ -228,7 +214,7 @@
     </nav>
     <section id="figCard" hidden>
         <div class="head"><button class="link" type="button" id="figClose">close</button></div>
-        <p>People who keep watch at night pick out figures among the stars and give them names. If you link three to seven systems of one cluster with lines and name the figure, you can add your address to the allowlist for the mint. Every cluster keeps its own constellations, eight at most.</p>
+        <p>People who keep watch at night pick out figures among the stars and give them names. Each constellation on this map links three to seven systems of one cluster, and whoever left it added their address to the allowlist for the mint. Every cluster keeps its own constellations, eight at most.</p>
         <div id="figDo"></div>
     </section>
   </aside>
@@ -236,7 +222,7 @@
     <canvas id="c"></canvas>
     <div id="labels"></div>
     <button class="open" id="openPanel" type="button" hidden>Systems</button>
-    <div id="status"><div><span id="where"></span><span id="whereHeld"></span></div><div id="carry"></div></div>
+    <div id="status"><div><span id="where"></span><span id="whereHeld"></span></div></div>
     <div id="tools">
       <button type="button" id="figCount" title="Open the constellation" hidden></button>
       <button type="button" id="chatBtn" aria-controls="chat" aria-expanded="false" hidden>chat</button>
@@ -248,11 +234,6 @@
       <div id="chatFoot"></div>
     </section>
     <div id="toast" role="status" hidden></div>
-    <div id="doneBox" role="dialog" aria-labelledby="doneTitle" hidden>
-      <h2 id="doneTitle">Your constellation is on the map</h2>
-      <p id="doneText"></p>
-      <div class="row"><button class="btn" type="button" id="doneBack">Keep exploring</button><button class="btn x" type="button" id="doneShare">Share on X</button></div>
-    </div>
   </main>
   <aside id="panel">
     <section id="v-list">
@@ -278,15 +259,13 @@
       <div class="head"><button class="link" type="button" data-back>← all systems</button><button class="link" type="button" data-hide>hide</button></div>
       <h2>The cairn</h2>
       <p>A cairn is a pile of stones that travelers add to as they pass, so that the next person can see the way has been walked before. The one at the center of this cluster has a small light on it, which is kept burning through the night.</p>
-      <p>Whoever passes can leave a constellation: a figure of three to seven systems, linked with lines and given a name. Leaving one adds your address to the allowlist for the mint.</p>
-      <p><button class="btn" type="button" id="cairnFig">Constellation</button></p>
+      <p>Until November 20, whoever passed could leave a constellation: a figure of three to seven systems, linked with lines and given a name. Leaving one added the address to the allowlist for the mint. The allowlist is closed now, and the constellations stay on the map.</p>
     </section>
     <section id="v-mint" hidden>
       <div class="head"><button class="link" type="button" data-back>← all systems</button><button class="link" type="button" data-hide>hide</button></div>
       <h2>Mint info</h2>
       <h3>Allowlist phase</h3>
-      <p>Open until November 20, 11:59 pm EST. Leaving a constellation adds your address to the allowlist.</p>
-      <p><button class="btn" type="button" id="mintFig">Constellation</button></p>
+      <p>The allowlist closed on November 20 at 11:59 pm EST.</p>
       <h3>Mint phase</h3>
       <dl>
         <dt>Begins</dt><dd>November 27th</dd>
@@ -903,12 +882,12 @@ function refreshFars() {
 // then every cluster is empty but for yours). A cluster holds FIG_CAP constellations at most, so its systems stay legible.
 const KEY = 'vigil-realms-3', FIG_MIN = 3, FIG_MAX = 7, FIG_CAP = 8;
 const shared = new Map();
-let fig = { cluster: 0, codes: [], name: '', addr: '' }, drawing = false;
+let fig = { cluster: 0, codes: [], name: '', addr: '' }, asked = '';      // (asked: the address the server last answered for)
 try {
   const g = JSON.parse(localStorage.getItem(KEY));
   if (g && Array.isArray(g.codes) && g.cluster >= 0 && g.cluster < N_CLUSTERS) {
     const all = clusterCodes(g.cluster | 0), codes = g.codes.filter(c => all.includes(c)).slice(0, FIG_MAX);
-    if (codes.length >= FIG_MIN) fig = { cluster: g.cluster | 0, codes, name: String(g.name || '').slice(0, 28), addr: String(g.addr || '') };
+    if (codes.length >= FIG_MIN && g.name && g.addr) fig = { cluster: g.cluster | 0, codes, name: String(g.name || '').slice(0, 28), addr: String(g.addr || '') };
   }
 } catch {}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(fig)); } catch {} };
@@ -916,7 +895,7 @@ const sysOf = codes => codes.map(c => C.sys.find(s => s.code === c)).filter(Bool
 const midOf = q => q.length ? [0, 1, 2].map(k => q.reduce((a, s) => a + s.at[k], 0) / q.length) : [0, 1, 0];
 const figSys = () => fig.cluster === C.n ? sysOf(fig.codes) : [];      // your figure's systems, if it is in the cluster you are in
 const othersHere = () => shared.get(C.n) || [];
-// ---- the wallet and the server. Nothing is asked of either until the visitor clicks connect or leaves a constellation,
+// ---- the wallet and the server. Nothing is asked of either until the visitor clicks connect,
 // except the constellations of the cluster you arrive in and how full each cluster is, which are fetched once on arrival.
 let wallet = '', counts = {}, countsAt = 0, total = null, seen = null, watchT = 0;   // (seen: the cluster and its change counter, as last loaded)
 const shortAddr = a => a.length > 20 ? a.slice(0, 6) + '…' + a.slice(-4) : a;
@@ -927,8 +906,8 @@ async function connect() {
   try { const [a] = await eth.request({ method: 'eth_requestAccounts' }); wallet = String(a || '').toLowerCase(); } catch { return ''; }
   $('conn').textContent = wallet ? shortAddr(wallet) : 'connect';
   if (API && wallet) {                                 // the constellation this address left earlier, from another browser perhaps
-    const { ok, body } = await ask('/me?addr=' + wallet);
-    if (ok && body.fig && !drawing && (fig.addr !== wallet || fig.codes.join() !== body.fig.codes.join() || fig.cluster !== body.fig.cluster || fig.name !== body.fig.name)) { fig = { ...body.fig, addr: wallet }; save(); arrive(); }
+    const { ok, body } = await ask('/me?addr=' + wallet); asked = ok ? wallet : '';
+    if (ok && body.fig && (fig.addr !== wallet || fig.codes.join() !== body.fig.codes.join() || fig.cluster !== body.fig.cluster || fig.name !== body.fig.name)) { fig = { ...body.fig, addr: wallet }; save(); arrive(); }
   }
   renderFig(); return wallet;
 }
@@ -943,7 +922,7 @@ function onConn(e) { e.stopPropagation(); if (!wallet) connect(); else connMenu(
 async function disconnect() {
   const was = wallet; wallet = ''; connMenu(false); $('conn').textContent = 'connect';
   try { await window.ethereum?.request({ method: 'wallet_revokePermissions', params: [{ eth_accounts: {} }] }); } catch {}
-  if (!drawing && fig.addr && fig.addr === was) { fig = { cluster: 0, codes: [], name: '', addr: '' }; save(); }
+  if (fig.addr && fig.addr === was) { fig = { cluster: 0, codes: [], name: '', addr: '' }; save(); }
   keepSig(null); if (chat.authed) { chatDrop(); chatConnect(); }
   makeLabels(); renderFig(); wake();
 }
@@ -964,7 +943,7 @@ async function arrive() {
   makeLabels(); renderFig(); wake();
   if (!API) return;
   const n = C.n, [here] = await Promise.all([ask('/clusters/' + n), loadCounts()]);
-  if (here.ok && C.n === n && !drawing && fig.cluster === n && fig.addr) {      // (your constellation renamed on the server: the name it has there)
+  if (here.ok && C.n === n && fig.cluster === n && fig.addr) {      // (your constellation renamed on the server: the name it has there)
     const mine = (here.body.figs || []).find(f => f.by === shortAddr(fig.addr));
     if (mine && fig.name && mine.name !== fig.name) { fig.name = mine.name; save(); }
   }
@@ -992,18 +971,6 @@ function watch() {
   }, WATCH_MS);
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden) { clearTimeout(watchT); watchT = 0; } else if (ready) watch(); });
-// travel to the nearest cluster that still has room for a constellation, and open the constellation's card there
-async function findRoom() {
-  if (jumping) return;
-  await loadCounts(true);
-  const here = clusterAt(C.n); let best = -1, bd = Infinity;
-  for (let m = 0; m < N_CLUSTERS; m++) {
-    if (m === C.n || (counts[m] || 0) >= FIG_CAP) continue;
-    const d = Math.hypot(...clusterAt(m).map((v, i) => v - here[i])); if (d < bd) { bd = d; best = m; }
-  }
-  if (best < 0) { toast('Every cluster is full.'); return; }
-  travelTo(best, openFig);
-}
 const hexText = t => '0x' + [...new TextEncoder().encode(t)].map(b => b.toString(16).padStart(2, '0')).join('');   // (what personal_sign takes)
 // ---- the chat: one room for the whole map, kept by the server (see "the chat" in server/src/worker.js). Its connection, a
 // WebSocket, is open only while the chat's card is open and the tab is in sight. It brings the last 100 messages and then
@@ -1083,18 +1050,19 @@ const chatForm = el('form', { onsubmit: e => {
   chat.sent = text; chat.err = chatErr.textContent = ''; chat.ws.send(JSON.stringify({ t: 'say', text })); chatIn.value = '';
 } }, chatIn, el('button', { type: 'submit', className: 'btn' }, 'Send'));
 function renderChatFoot() {
-  const left = !drawing && fig.codes.length >= FIG_MIN && !!fig.name && !!fig.addr;        // (a constellation left from this browser)
+  const left = fig.codes.length >= FIG_MIN && !!fig.name && !!fig.addr;        // (a constellation left from this browser)
   const state = !chat.ws || chat.ws.readyState !== 1 ? (chat.tries ? 'lost' : 'wait') : chat.authed ? 'in' : left && (!wallet || wallet === fig.addr) ? 'sign' : wallet ? 'out' : 'outw';
   chatErr.textContent = chat.err;
-  const key = state + (state === 'in' ? chat.name : state === 'sign' ? fig.addr : '');
+  const key = state + (state === 'in' ? chat.name : state === 'sign' ? fig.addr : state === 'out' ? wallet : '');
   if (key === chat.foot) return;
   chat.foot = key;
   const f = $('chatFoot'), btn = (text, onclick) => el('button', { type: 'button', className: 'btn', onclick }, text);
   if (state === 'wait' || state === 'lost') f.replaceChildren(el('p', { className: 'dim' }, state === 'wait' ? 'Connecting to the chat…' : 'The chat cannot be reached. Trying again…'));
   else if (state === 'in') { chatIn.placeholder = `Write as ${chat.name}`; f.replaceChildren(chatForm, chatErr); }
   else if (state === 'sign') f.replaceChildren(el('p', {}, 'To write here from this browser, sign once with the wallet of ', el('span', { className: 'nw' }, shortAddr(fig.addr) + '.'), ' It costs nothing and sends no transaction.'), btn('Sign to write', chatSign), chatErr);
-  else f.replaceChildren(el('p', {}, `Addresses on the allowlist can write here. Leave a constellation to add yours${state === 'out' ? '.' : ', or connect the wallet that left one.'}`),
-    el('div', { className: 'row' }, btn('Constellation', openFig), ...(state === 'outw' ? [btn('Connect', connect)] : [])), chatErr);
+  else f.replaceChildren(el('p', {}, state === 'out' ? `Addresses on the allowlist can write here. The allowlist is closed, and ${shortAddr(wallet)} is not on it.`
+    : 'Addresses on the allowlist can write here. The allowlist is closed. If your address is on it, connect its wallet to write.'),
+    ...(state === 'outw' ? [el('div', { className: 'row' }, btn('Connect', connect))] : []), chatErr);
 }
 async function chatSign() {
   const a = wallet || await connect(); if (!a) return;
@@ -1104,74 +1072,12 @@ async function chatSign() {
   catch { chat.err = 'The chat was not signed.'; renderChatFoot(); return; }
   keepSig({ addr: a, time, sig }); chat.err = ''; chatAuth();
 }
-// ---- names. The same lines are in server/src/worker.js, which refuses the name too.
-// Names that are refused: slurs, hate slogans, and explicit sexual words and the strongest swearing. The name is
-// lowercased, its accents dropped and its look-alike digits read as letters (n1gg3r is nigger). Short words are refused
-// only as whole words, so that ordinary words that contain them pass (spice, peacock, grape, Ashkenazi). Long ones are
-// refused inside any word (bullshit), and across the whole name when it is spelled out letter by letter (f u c k). A
-// filter can be got round; the server's admin key takes a name off the map.
-const LOOK = { 0: 'o', 1: 'i', 3: 'e', 4: 'a', 5: 's', 7: 't', 8: 'b', '@': 'a', $: 's', '!': 'i', '|': 'i' };
-const INSIDE = [/n+i+g+g+(e+r|a+|u+h)/, /f+a+g+g+o+t/, /f+u+c+k/, /(^|[^s])c+u+n+t/, /s+h+it/, /p+o+r+n/, /k+k+k/, /h+i+t+l+e+r/, /c+u+m+s+h+o+t/, /m+o+l+e+s+t/, /p+e+d+o+p+h/];
-const PHRASE = [/w+h+i+t+e+p+o+w+e+r/, /s+i+e+g+h+e+i+l/, /h+e+i+l+h+i+t+l+e+r/];      // (looked for across the whole name)
-const WHOLE = /^(fags?|kikes?|spi(c|ck)s?|chinks?|coons?|gooks?|dykes?|wetbacks?|ragheads?|towelheads?|beaners?|pakis?|trann(y|ies)|retard(s|ed)?|nazis?|heil|rapes?|raped|rapists?|cocks?|dicks?|pussy|pussies|cum|sluts?|whores?|twats?|wank(ers?)?|jizz|tits)$/;
-function badName(name) {
-  const t = String(name).toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '');
-  if (/(^|\D)1488(\D|$)/.test(t)) return true;
-  const words = t.replace(/[0134578@$!|]/g, c => LOOK[c]).split(/[^a-z]+/).filter(Boolean);
-  if (words.some(w => WHOLE.test(w) || INSIDE.some(r => r.test(w)))) return true;
-  const joined = words.join('');
-  return PHRASE.some(r => r.test(joined)) || (words.some(w => w.length === 1) && INSIDE.some(r => r.test(joined)));
-}
-// Once a constellation has been left: a card that says so, with "Keep exploring" (which shows the figure) and "Share on
-// X" (a post written for the visitor to send from their own account; the page only opens X's post form). With the server,
-// the card also says the address's rank on the allowlist (1 is the first address added).
-function showDone(rank) {
-  const t = $('doneText');
-  const el = (tag, text) => { const e = document.createElement(tag); e.textContent = text; return e; };   // (the address and the rank each kept on one line)
-  t.textContent = `${fig.name} links ${fig.codes.length} systems in ${clusterName(fig.cluster)}, and the address `;
-  t.append(el('span', shortAddr(fig.addr)), ' is on the allowlist for the mint');
-  if (rank > 0) t.append(' at ', el('b', `rank ${rank}`));
-  t.append('.');
-  $('doneBox').hidden = false; $('doneBack').focus();
-}
-function closeDone(show) { $('doneBox').hidden = true; if (show) showFig(); }
-function shareDone() {
-  const text = `I drew a constellation called ${fig.name} on the map of Vigil by @0010_888, and my address is on the allowlist for the mint.`;
-  window.open(`https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent('https://0010.art/space/')}`, '_blank', 'noopener');
-}
-// leave the constellation with the server: the wallet signs a text that names it, and the server checks the signature
-async function leave(name, err) {
-  const a = wallet || await connect();
-  if (!a) { err.textContent = 'Connect a wallet to sign the constellation.'; return; }
-  const time = new Date().toISOString(), text = `Vigil constellation\nName: ${name}\nCluster: ${fig.cluster}\nSystems: ${fig.codes.join(', ')}\nAddress: ${a}\nTime: ${time}`;
-  let sig;
-  try { sig = await window.ethereum.request({ method: 'personal_sign', params: [hexText(text), a] }); }
-  catch { err.textContent = 'The constellation was not signed.'; return; }
-  const { ok, body } = await ask('/constellation', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cluster: fig.cluster, codes: fig.codes, name, addr: a, time, sig }) });
-  if (!ok) { err.textContent = body.error || 'The server could not be reached. Try again.'; return; }
-  fig.name = name; fig.addr = a; save(); countsAt = 0; arrive(); showDone(body.rank);
-  keepSig({ addr: a, time, sig, fig: { cluster: fig.cluster, codes: fig.codes.slice(), name } }); chat.authed = false; chatAuth();   // (the chat takes this signature too)
-}
-function startDrawing() {
-  if (jumping || othersHere().length >= FIG_CAP) return;
-  fig = { cluster: C.n, codes: [], name: '', addr: fig.addr }; drawing = true; save(); makeLabels(); openFig(); go({ k: 'cairn' }, MAP * 0.8);
-}
-// a click on a system while drawing: add it to the figure, or take it off again if it is the last one
-function link(i) {
-  const code = C.sys[i].code, at = fig.codes.indexOf(code);
-  if (at >= 0 && at === fig.codes.length - 1) fig.codes.pop();
-  else if (at >= 0) toast(`${code} is already part of the figure. Click the last system to take it off.`);
-  else if (fig.codes.length >= FIG_MAX) toast(`A constellation has at most ${FIG_MAX} systems.`);
-  else fig.codes.push(code);
-  save(); renderFig(); wake();
-}
-function reset() { fig = { cluster: 0, codes: [], name: '', addr: '' }; drawing = false; save(); makeLabels(); renderFig(); wake(); }
 // The constellation's card stays open while you click around the map, until it is closed (its menu entry opens and closes it).
 function openFig() { if (jumping) return; if (PHONE.matches) { openPanel(false); if (chatOpen()) closeChat(); } $('figCard').hidden = false; renderFig(); syncSheets(); wake(); }
 function closeFig() { $('figCard').hidden = true; renderFig(); syncSheets(); wake(); }
 // the view that holds the whole figure, travelling to its cluster first
 function showFig() {
-  if (jumping || drawing || fig.codes.length < FIG_MIN) return;
+  if (jumping || fig.codes.length < FIG_MIN) return;
   travelTo(fig.cluster, () => { const q = figSys(), m = midOf(q); openFig(); go({ k: 'point', p: m }, Math.max(60, 2.3 * Math.max(...q.map(s => Math.hypot(s.at[0] - m[0], s.at[1] - m[1], s.at[2] - m[2]))))); });
 }
 // A picture of the map as it is now, with the constellation's name and its systems' seeds written on it, to keep or post.
@@ -1240,7 +1146,6 @@ function jumpStep(e) {
     travel.from = travel.from.map((v, i) => v - P[i]); follow = { k: 'cairn' };
     if (!old.home) dispose(old);
     C = J.next; cameFrom = { n: old.n, pos: P.map(v => -v), phase: old.phase, home: old.home }; fars = makeFars(C.n, cameFrom); sel = -1; arrive();
-    if (drawing) { drawing = false; fig.codes = []; save(); }           // a figure belongs to one cluster: leaving it stops the drawing
     makeLabels(); renderList(); renderFig();
   }
   fade = smooth(0.5, 0.66, e);
@@ -1283,7 +1188,6 @@ function pick(cx, cy) {
 function clickAt(cx, cy) {
   if (jumping) return;
   const hit = pick(cx, cy);
-  if (drawing) { const i = !hit ? -1 : hit.k === 'sys' ? hit.i : hit.k === 'obj' ? C.PS[hit.idx * 3] : -1; if (i >= 0) link(i); return; }   // while drawing, a click links
   if (!hit) { if (sel >= 0 || follow.k !== 'cairn' || $('v-list').hidden) homeView(); return; }   // empty space: let go, back to the opening view
   if (hit.k === 'cairn') openCairn();
   else if (hit.k === 'fig') openFig();
@@ -1328,7 +1232,7 @@ function openSys(i, fly) {
   showView('sys'); openPanel(true);
   if (fly) go({ k: 'sys', i }, s.Rs * 2.1);
 }
-function openCairn() { if (jumping || drawing) return; atHome(() => { showView('cairn'); openPanel(true); go({ k: 'cairn' }, 7); }); }
+function openCairn() { if (jumping) return; atHome(() => { showView('cairn'); openPanel(true); go({ k: 'cairn' }, 7); }); }
 function toMap() { if (jumping) return; showView('list'); go({ k: 'cairn' }, MAP); }
 function toFar() { if (jumping) return; showView('far'); renderFar(); openPanel(true); go({ k: 'cairn' }, FAR_VIEW); }
 // The panel's list of the other clusters in sight, with how many constellations each holds: those with room first, then
@@ -1347,49 +1251,21 @@ function renderFar() {
 }
 function homeView() { if (jumping) return; showView('list'); go({ k: 'cairn' }, HOME); }
 function el(tag, props, ...kids) { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; }
-// The constellation's panel and the menu, from where your constellation stands: not begun, being drawn, drawn and waiting
-// for a name and an address, or left in its cluster (this one or another).
+// The constellation's card and its menu entry. The allowlist closed on November 20, 2026 (the server takes no more), so the
+// card shows the constellation this browser or the connected wallet left, or says that none can be left now.
 function renderFig() {
-  $('figCard').classList.toggle('drawing', drawing);
-  const n = fig.codes.length, box = $('figDo'), here = fig.cluster === C.n, has = n >= FIG_MIN && !drawing, left = has && !!fig.name && !!fig.addr, others = othersHere();
-  $('count').textContent = drawing ? `${n} linked` : left ? 'done' : '';
-  $('carry').textContent = drawing ? `Drawing a constellation: ${n} ${n === 1 ? 'system' : 'systems'} linked. ${TOUCH ? 'Tap' : 'Click'} a system to link it.` : '';
+  const n = fig.codes.length, box = $('figDo'), here = fig.cluster === C.n, left = n >= FIG_MIN && !!fig.name && !!fig.addr;
+  $('count').textContent = left ? 'done' : '';
   $('navFig').hidden = !left || !$('figCard').hidden; $('figName').textContent = fig.name; renderChatFoot();      // (while the card is open, its own button shows the figure)
-  const list = () => el('ol', { className: 'fig' }, ...fig.codes.map(c => el('li', {}, c)));
-  const room = others.length >= FIG_CAP ? el('div', {}, el('p', { className: 'dim' }, `This cluster already holds ${FIG_CAP} constellations, which is as many as a cluster keeps.`), el('button', { type: 'button', className: 'btn', onclick: findRoom }, 'Travel to the nearest cluster with room'))
-    : el('button', { type: 'button', className: has ? 'link' : 'btn', onclick: startDrawing }, has ? (here ? 'Draw it again' : `Draw a new one here, in ${clusterName(C.n)}`) : 'Draw a constellation here');
-  if (drawing) box.replaceChildren(
-    el('p', {}, TOUCH ? `Tap a system on the map to add it to the figure, and tap the last one again to take it off. The figure needs at least ${FIG_MIN} systems and can have ${FIG_MAX}. You can still drag and pinch to look around.`
-      : `Click a system on the map to add it to the figure, and click the last one again to take it off. The figure needs at least ${FIG_MIN} systems and can have ${FIG_MAX}. You can still drag and scroll to look around.`),
-    n ? list() : el('p', { className: 'dim' }, 'No system is linked yet.'),
-    el('div', { className: 'row' },
-      el('button', { type: 'button', className: 'btn', disabled: n < FIG_MIN, onclick: () => { drawing = false; makeLabels(); renderFig(); showFig(); } }, 'Done'),
-      el('button', { type: 'button', className: 'btn', disabled: !n, onclick: () => { fig.codes.pop(); save(); renderFig(); wake(); } }, 'Take the last one off'),
-      el('button', { type: 'button', className: 'btn', onclick: () => { drawing = false; fig.codes = []; save(); renderFig(); wake(); } }, 'Stop')));
-  else if (!has) box.replaceChildren(
-    el('p', {}, `You are in ${clusterName(C.n)}. A constellation is drawn in the cluster you are in, so to draw one in another cluster, travel there first.`),
-    el('div', { className: 'row' }, room), el('button', { type: 'button', className: 'link', onclick: () => { if (!jumping) go({ k: 'cairn' }, FAR_VIEW); } }, 'Show the other clusters'));
-  else if (left) box.replaceChildren(
+  if (left) box.replaceChildren(
     el('p', {}, API ? `Your constellation ${fig.name} links ${n} systems in ${clusterName(fig.cluster)}, and the address ${shortAddr(fig.addr)} is on the allowlist with it.`
-      : `Your constellation ${fig.name} links ${n} systems in ${clusterName(fig.cluster)}, and the address ${shortAddr(fig.addr)} is noted with it in this browser. This page has no server yet, so neither has been sent anywhere.`),
-    list(),
+      : `Your constellation ${fig.name} links ${n} systems in ${clusterName(fig.cluster)}, and the address ${shortAddr(fig.addr)} is noted with it in this browser.`),
+    el('ol', { className: 'fig' }, ...fig.codes.map(c => el('li', {}, c))),
     el('div', { className: 'row' }, el('button', { type: 'button', className: 'btn', onclick: showFig }, here ? 'Show it' : `Travel to it`), ...(here ? [el('button', { type: 'button', className: 'btn', onclick: savePicture }, 'Save a picture')] : [])));
-  else if (!box.querySelector('form')) {
-    const name = el('input', { id: 'figNameIn', type: 'text', maxLength: 28, value: fig.name, placeholder: 'The Lantern', autocomplete: 'off', spellcheck: false });
-    const input = el('input', { id: 'addr', type: 'text', value: fig.addr, placeholder: '0x… or name.eth', autocomplete: 'off', spellcheck: false }), err = el('div', { className: 'err', role: 'alert' });
-    const go = el('button', { type: 'submit', className: 'btn' }, API ? 'Sign and add to the allowlist' : 'Add to the allowlist');
-    box.replaceChildren(el('p', {}, API ? `The figure links ${n} systems in ${clusterName(fig.cluster)}. Give it a name and sign it with your wallet to add your address to the allowlist. Signing costs nothing and sends no transaction.`
-        : `The figure links ${n} systems in ${clusterName(fig.cluster)}. Give it a name and add an address to the allowlist for the mint.`), list(),
-      el('form', { onsubmit: async e => {
-        e.preventDefault(); const nm = name.value.trim().replace(/\s+/g, ' '), v = input.value.trim(); err.textContent = '';
-        if (nm.length < 2 || /[<>]/.test(nm)) { err.textContent = 'Give the constellation a name of at least two characters, without angle brackets.'; return; }
-        if (badName(nm)) { err.textContent = 'That name is not allowed here. Choose another.'; return; }
-        if (API) { go.disabled = true; await leave(nm, err); go.disabled = false; return; }
-        if (!/^0x[0-9a-fA-F]{40}$/.test(v) && !/^([a-z0-9-]+\.)+eth$/i.test(v)) { err.textContent = 'Enter an address that starts with 0x and has 40 more characters, or a name that ends in .eth.'; return; }
-        fig.name = nm; fig.addr = v; save(); makeLabels(); renderFig(); wake(); showDone();
-      } }, el('label', { htmlFor: 'figNameIn' }, 'Name of the constellation'), name, ...(API ? [] : [el('label', { htmlFor: 'addr' }, 'Ethereum address or ENS name'), input]), err, go),
-      room);
-  }
+  else box.replaceChildren(
+    el('p', {}, 'The allowlist closed on November 20 at 11:59 pm EST, and no new constellations are taken.'),
+    ...(!API ? [] : wallet ? (asked === wallet ? [el('p', { className: 'dim' }, `The address ${shortAddr(wallet)} has no constellation on the map.`)] : [])
+      : [el('p', {}, 'If you left one from another browser, connect the wallet you signed it with to see it here.'), el('div', { className: 'row' }, el('button', { type: 'button', className: 'btn', onclick: connect }, 'Connect'))]));
 }
 // a system's belts as a small picture: its centre, then a ring for each belt in the belt's colour
 function swatch(s) {
@@ -1417,7 +1293,7 @@ let labels = [], labelShown = [], labelKey = '';
 function makeLabels() {
   labels = C.sys.map(s => ({ e: el('div', {}, s.code), s, hit: { k: 'sys', i: s.i } }));
   if (C.home) labels.push({ e: el('div', {}, 'cairn'), hit: { k: 'cairn' } });
-  if (fig.name && !drawing && figSys().length >= FIG_MIN) labels.push({ e: el('div', {}, fig.name), fig: midOf(figSys()), mine: true, hit: { k: 'fig' } });   // your constellation's name, in its middle
+  if (fig.name && figSys().length >= FIG_MIN) labels.push({ e: el('div', {}, fig.name), fig: midOf(figSys()), mine: true, hit: { k: 'fig' } });   // your constellation's name, in its middle
   for (const f of othersHere()) { const q = sysOf(f.codes); labels.push({ e: el('div', {}, f.name), fig: midOf(q), of: q, hit: { k: 'fig' } }); }       // other people's: shown while you point at one of their systems
   fars.forEach((f, j) => {                       // another cluster: its name, and under it how many constellations it holds ("full" in red when it has no room)
     const n = counts[f.n] || 0, e = el('div', {}, clusterName(f.n));
@@ -1524,7 +1400,6 @@ canvas.addEventListener('pointerleave', () => { hoverXY = null; if (hover) { hov
 canvas.addEventListener('wheel', e => { e.preventDefault(); zoomAt(wantDist() * Math.exp(e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX - rect.left, e.clientY - rect.top); }, { passive: false });
 addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
-  if (e.key === 'Escape' && !$('doneBox').hidden) { closeDone(false); return; }
   if (e.key === 'Escape' && ready) toMap();
 });
 $('navMap').onclick = () => ready && toMap();
@@ -1533,16 +1408,12 @@ $('figCount').onclick = () => ready && openFig();
 $('chatBtn').hidden = !API; $('chatBtn').onclick = () => chatOpen() ? closeChat() : openChat(); $('chatHide').onclick = closeChat;
 $('chatLog').addEventListener('scroll', e => { const l = e.target; chat.stick = l.scrollHeight - l.scrollTop - l.clientHeight < 40; }, { passive: true });
 new ResizeObserver(() => { if (chat.stick) $('chatLog').scrollTop = $('chatLog').scrollHeight; }).observe($('chatLog'));
-$('doneBack').onclick = () => closeDone(true);
-$('doneShare').onclick = shareDone;
 $('hidePanel').onclick = () => openPanel(false); $('openPanel').onclick = () => openPanel(true);
 for (const b of document.querySelectorAll('[data-hide]')) b.onclick = () => openPanel(false);
 for (const b of document.querySelectorAll('[data-back]')) b.onclick = () => showView('list');
 $('navCairn').onclick = () => ready && openCairn();
 $('navDraw').onclick = () => ready && ($('figCard').hidden ? openFig() : closeFig());
 $('figClose').onclick = closeFig;
-$('cairnFig').onclick = () => ready && openFig();
-$('mintFig').onclick = () => ready && openFig();
 $('navFig').onclick = () => ready && showFig();
 $('filter').oninput = e => { const q = e.target.value.trim().toLowerCase(); for (const r of $('rows').children) r.hidden = !!q && !r.dataset.find.includes(q); };
 document.addEventListener('visibilitychange', () => document.hidden ? stop() : start());
@@ -1637,14 +1508,12 @@ function draw() {
     else if (s.centre === 'eclipse') glow(s.at, s.bodyR / 0.3, s.sc.eclipse.corona, fade, 3.2, 1, 0.3, s.seed);
     else { const far = 1 - smooth(3, 9, HOLE_R * px / Math.hypot(s.at[0] - o[0], s.at[1] - o[1], s.at[2] - o[2]) / dpr); if (far > 0.01) glow(s.at, s.bodyR / 0.3, s.sc.glint, fade * far, 2.6, 2, 0.3, s.seed); }   // too far for its disc to show: a small ring
   }
-  // The constellations of this cluster. Yours in red: its systems ringed, and while it is being drawn the system under the
-  // pointer too, faintly. Other people's pale and faint, and in full while you point at one of their systems.
-  const nodes = figSys(), hot = hover && hover.k === 'sys' ? C.sys[hover.i] : null, next = drawing && hot && nodes.length < FIG_MAX && !nodes.includes(hot) ? hot : null;
+  // The constellations of this cluster. Yours in red, its systems ringed. Other people's pale and faint, and in full while you point at one of their systems.
+  const nodes = figSys(), hot = hover && hover.k === 'sys' ? C.sys[hover.i] : null;
   const lit = hot || (sel >= 0 ? C.sys[sel] : null), theirs = othersHere().map(f => { const q = sysOf(f.codes); return { q, al: lit && q.includes(lit) ? 0.9 : 0.22 }; });
   if (C.home) glow([0, 1.95, 0], 0.22, LANTERN, fade, 3);
   for (const f of theirs) for (const s of f.q) glow(s.at, s.Rs * 1.28, PALE, fade * f.al * 0.8, 10, 3);
   for (const s of nodes) glow(s.at, s.Rs * 1.28, RED, fade, 10, 3);
-  if (next) glow(next.at, next.Rs * 1.28, RED, fade * 0.45, 10, 3);
   const call = smooth(1300, 2800, cam.dist) * (jumping ? 0.3 : 1);                                                    // the rings that call from other clusters
   if (call > 0.01) fars.forEach((F, j) => glow(F.pos, 1300, F.home ? LANTERN : PALE, call * (0.12 + 0.88 * Math.pow(0.5 + 0.5 * Math.sin(t * 1.5 - j * 1.9), 6)), 8.5, 3));
   gl.useProgram(P_GLOW.p); gl.uniformMatrix4fv(P_GLOW.u.uProj, false, proj); gl.uniformMatrix3fv(P_GLOW.u.uRot, false, view.rot); gl.uniform3fv(P_GLOW.u.uCam, o);
@@ -1671,7 +1540,7 @@ function draw() {
     gl.bindVertexArray(lineVao); gl.bindBuffer(gl.ARRAY_BUFFER, bufLine); gl.bufferSubData(gl.ARRAY_BUFFER, 0, lines.subarray(0, nv * 3)); gl.drawArrays(gl.TRIANGLES, 0, nv);
   };
   if (theirs.length) strips(theirs.map(f => ({ ends: f.q, al: f.al, last: f.al })), PALE);
-  if (nodes.length + (next ? 1 : 0) > 1) strips([{ ends: next ? [...nodes, next] : nodes, al: 0.9, last: next ? 0.4 : 0.9 }], RED);
+  if (nodes.length > 1) strips([{ ends: nodes, al: 0.9, last: 0.9 }], RED);
   gl.bindVertexArray(null);
 }
 async function begin() {
