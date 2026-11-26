@@ -32,13 +32,6 @@
   #bar a:focus-visible { outline: 1px solid var(--fg); outline-offset: 3px; }
   #bar nav { align-items: center; }
   #bar nav a.info, #bar nav a.info:hover { color: var(--accent); }
-  /* pages to come: no underline, and a small box under them on hover that says so */
-  #bar nav a.later { cursor: default; }
-  #bar nav a.later:hover { color: var(--dim); }
-  #bar nav a.later:hover::after { scale: 0 1; }
-  #bar nav a.later::before { content: 'soon'; position: absolute; top: calc(100% + 9px); left: 50%; translate: -50% 0; padding: 5px 9px; border-radius: 6px; white-space: nowrap;
-    background: var(--panel); border: 1px solid var(--line); color: var(--fg); font-size: 11px; text-shadow: none; opacity: 0; pointer-events: none; transition: opacity .12s; }
-  #bar nav a.later:hover::before, #bar nav a.later:focus-visible::before { opacity: 1; }
   #bar .conn { padding: 6px 12px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--line); color: var(--fg); line-height: 1; }
   #bar .conn:hover, #bar .conn[aria-expanded="true"] { box-shadow: inset 0 0 0 1px var(--fg); }
   /* under the connected address: the address in full and a way to disconnect */
@@ -164,10 +157,10 @@
     #side nav { position: absolute; top: calc(50px + env(safe-area-inset-top, 0px)); left: 12px; right: 12px; display: none; padding: 10px 16px; pointer-events: auto; text-shadow: none;
       background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 28px rgb(0 0 0 / .45); }
     #side.open nav { display: flex; }
-    #side nav > button { padding: 8px 0; font-size: 13px    .site-links { display: flex; flex-direction: column; align-items: flex-start; align-self: stretch; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 13px; }
+    #side nav > button { padding: 8px 0; font-size: 13px; }
+    .site-links { display: flex; flex-direction: column; align-items: flex-start; align-self: stretch; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 13px; }
     .site-links a { padding: 8px 0; color: var(--dim); text-decoration: none; }
     .site-links a[aria-current="page"] { color: var(--fg); }
-    .site-links a.later::after { content: ' · soon'; }
     #figCard, #panel { position: fixed; z-index: 6; left: 0; right: 0; bottom: 0; top: auto; width: auto; max-height: 55%; margin: 0; padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
       border: 1px solid var(--line); border-bottom: 0; border-radius: 12px 12px 0 0; box-shadow: 0 -8px 28px rgb(0 0 0 / .4); }
     #figCard { padding-top: 12px; }
@@ -183,6 +176,36 @@
     #labels div { font-size: 10px; }
   }
   @media (pointer: coarse) { input { font-size: 16px; } }   /* (phones zoom the page into a field with smaller type) */
+  /* My collection: the pieces the connected wallet minted, as still pictures, a row for each family. It lies over the map,
+     which stops drawing while it shows. A click on a piece opens it larger, moving, in a box of its own. */
+  #coll { grid-column: 1 / 4; grid-row: 1; z-index: 3; overflow-y: auto; overscroll-behavior: contain; background: var(--bg);
+    padding: 84px calc(28px + env(safe-area-inset-right, 0px)) 48px calc(28px + env(safe-area-inset-left, 0px)); }
+  #coll .fam { margin-top: 30px; }
+  #coll .fam .head { justify-content: flex-start; gap: 16px; margin: 0; }
+  #coll .fam h3 { margin: 0; color: var(--fg); }
+  #coll .pieces { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  #coll figure { margin: 0; }
+  #coll figure button { display: block; height: 300px; aspect-ratio: 4 / 5; background: #000; border-radius: 2px; overflow: hidden; }
+  #coll figure button:disabled { cursor: default; }
+  #coll figure button:not(:disabled):hover { outline: 1px solid var(--fg); outline-offset: 2px; }
+  #coll figure img { display: block; width: 100%; height: 100%; }
+  #coll figcaption { margin-top: 5px; color: var(--dim); font-size: 11px; }
+  #big { width: fit-content; max-width: calc(100% - 32px); max-height: calc(100% - 32px); padding: 16px; background: var(--panel); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 8px 28px rgb(0 0 0 / .35); }
+  #big::backdrop { background: rgb(0 0 0 / .62); }
+  #big .in { display: flex; gap: 20px; align-items: flex-start; }
+  #bigBox { flex: none; height: min(78vh, 760px); background: #000; }
+  #bigBox iframe { display: block; width: 100%; height: 100%; border: 0; color-scheme: light; }
+  #big .info { width: 250px; }
+  @media (max-width: 760px), (pointer: coarse) and (max-height: 500px) {      /* (a phone: two pieces to a row, and the larger piece above its details) */
+    #coll { padding: calc(62px + env(safe-area-inset-top, 0px)) 14px 32px; }
+    #coll .fam .head { flex-wrap: wrap; gap: 2px 14px; }
+    #coll figure button { height: 200px; }
+    #big { width: auto; }
+    #big .in { flex-direction: column; }
+    #bigBox { height: auto; width: 100%; }
+    #big .info { width: auto; align-self: stretch; }
+  }
   form { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
   .err { color: var(--accent); }
   #src { position: fixed; left: -10000px; top: 0; width: 400px; height: 500px; border: 0; }
@@ -193,9 +216,9 @@
   <a class="brand" href="https://0010.art/" aria-label="0010, index"><svg viewBox="-114 -114 228 228" aria-hidden="true"><circle r="105" fill="#e9e1d5"/><circle r="85" fill="#1e1f23"/><circle r="13.5" fill="#e9e1d5"/></svg></a>
   <nav aria-label="Sections">
     <a href="#" class="info" id="mintInfo">mint info</a>
-    <a href="#" aria-current="page">space</a>
-    <a href="#" class="later">my systems</a>
-    <a href="#" class="later">my collection</a>
+    <a href="#" aria-current="page" data-go="space">space</a>
+    <a href="#systems" data-go="systems">my systems</a>
+    <a href="#collection" data-go="collection">my collection</a>
     <a href="https://0010.art/vigil/">vigil</a>
     <button class="conn" id="conn" type="button" aria-haspopup="true" aria-expanded="false">connect</button>
     <button class="menu" id="menuBtn" type="button" aria-expanded="false" aria-controls="side">menu</button>
@@ -210,7 +233,7 @@
       <button type="button" id="navCairn"><span>The cairn</span></button>
       <button type="button" id="navDraw"><span>Constellation</span><span class="dim" id="count"></span></button>
       <button type="button" id="navFig" hidden><span id="figName"></span></button>
-      <div class="site-links"><a href="#" aria-current="page">space</a><a href="#" class="later">my systems</a><a href="#" class="later">my collection</a><a href="https://0010.art/vigil/">vigil</a></div>
+      <div class="site-links"><a href="#" aria-current="page" data-go="space">space</a><a href="#systems" data-go="systems">my systems</a><a href="#collection" data-go="collection">my collection</a><a href="https://0010.art/vigil/">vigil</a></div>
     </nav>
     <section id="figCard" hidden>
         <div class="head"><button class="link" type="button" id="figClose">close</button></div>
@@ -235,6 +258,11 @@
     </section>
     <div id="toast" role="status" hidden></div>
   </main>
+  <section id="coll" aria-label="My collection" hidden>
+    <h2>My collection</h2>
+    <div class="dim" id="collWho"></div>
+    <div id="collBody"></div>
+  </section>
   <aside id="panel">
     <section id="v-list">
       <div class="head"><h2>Systems <span class="dim" id="nSys"></span></h2><button class="link" id="hidePanel" type="button">hide</button></div>
@@ -261,6 +289,11 @@
       <p>A cairn is a pile of stones that travelers add to as they pass, so that the next person can see the way has been walked before. The one at the center of this cluster has a small light on it, which is kept burning through the night.</p>
       <p>Until November 20, whoever passed could leave a constellation: a figure of three to seven systems, linked with lines and given a name. Leaving one added the address to the allowlist for the mint. The allowlist is closed now, and the constellations stay on the map.</p>
     </section>
+    <section id="v-mine" hidden>
+      <div class="head"><button class="link" type="button" data-back>← all systems</button><button class="link" type="button" data-hide>hide</button></div>
+      <h2 id="mineTitle">My systems</h2>
+      <div id="mineDo"></div>
+    </section>
     <section id="v-mint" hidden>
       <div class="head"><button class="link" type="button" data-back>← all systems</button><button class="link" type="button" data-hide>hide</button></div>
       <h2>Mint info</h2>
@@ -276,6 +309,18 @@
     </section>
   </aside>
 </div>
+<dialog id="big" aria-labelledby="bigCode">
+  <div class="in">
+    <div id="bigBox"></div>
+    <div class="info">
+      <div class="head"><h2 id="bigCode"></h2><button class="link" type="button" id="bigClose">close</button></div>
+      <div class="dim" id="bigSub"></div>
+      <dl id="bigTraits"></dl>
+      <div class="row"><button class="btn" type="button" id="bigSys">Show its system</button></div>
+    </div>
+  </div>
+</dialog>
+<script>window.VIGIL_MINT = {"name":"Sepolia","vigil":"0x75F71606fb64c58Fc4d52AACf2086Ef43a4BA321","rpcs":["https://ethereum-sepolia-rpc.publicnode.com","https://sepolia.gateway.tenderly.co"]};</script>
 <script src="piece.js"></script>
 <script>
 // Vigil realms: Vigil pieces as clusters of small systems that you look at from where you are (an experiment for the mint
@@ -295,6 +340,8 @@
 // server, so the only constellation you see is your own. The cairn at the centre of the first cluster tells the story.
 // With a constellation server (server/main.ts; its address in API below), the visitor signs the constellation with a
 // wallet instead of typing an address, the server keeps it, and everyone sees the constellations of the cluster they are in.
+// The bar's "my systems" and "my collection" show the pieces the connected wallet minted: as clusters of their own, a
+// family to a cluster, and as still pictures side by side (see "the visitor's own pieces" below).
 // Nothing runs while the page is hidden.
 const PIECE = '../../../prototypes/gravel-hours.html';
 // A shared copy of this page carries the piece's source in PIECE_HTML (set by an earlier script), and opened straight from
@@ -323,6 +370,13 @@ const RED = [0.89, 0.3, 0.24], LANTERN = [1, 0.8, 0.52], CAIRN_STONE = [0.6, 0.5
 const $ = id => document.getElementById(id);
 const canvas = $('c');
 const Q = new URLSearchParams(location.search);
+// The mint contract, read for "my systems" and "my collection": the families an address minted (familiesOf). It is read
+// through public endpoints, tried in turn, so the wallet is asked for nothing but its address and may be on any network.
+// VIGIL_MINT names the deployed contract (share.mjs writes it into the site's copy from contract/deployments.json);
+// without it, the test contract on Sepolia.
+// ?mine=<seeds> stands in for a wallet's mints, for a test: families apart by ";", their seeds by "," (a,b,c;d;e,f).
+const MINT = window.VIGIL_MINT || { name: 'Sepolia', vigil: '0x75F71606fb64c58Fc4d52AACf2086Ef43a4BA321', rpcs: ['https://ethereum-sepolia-rpc.publicnode.com', 'https://sepolia.gateway.tenderly.co'] };
+const MINE_Q = Q.get('mine');
 const FPS = Math.max(10, Math.min(120, +Q.get('fps') || 60));   // frames a second at most while something moves
 const IDLE_FPS = Math.min(FPS, 30);                              // and while only the belts turn
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -341,18 +395,18 @@ const CODES = codesFrom(rng(20261115), 'gxvn7eqqm8');           // the first clu
 
 // ---- the piece: opened in a hidden frame, asked for every seed's scene, then removed
 function pieceSrcdoc(q) { return PIECE_HTML.replace(/<head>/i, m => `${m}<script>window.__vigilParams = ${JSON.stringify(q)};<\/script>`); }
-function readScenes(codes) {
+// The piece opened in a hidden frame with the settings q, handed to fn once it is ready, and removed when fn is done.
+function withPiece(q, fn) {
   return new Promise((res, rej) => {
     const f = document.createElement('iframe');
     f.id = 'src';
-    const q = `embed=1&seed=${encodeURIComponent(codes[0])}`;
     if (PIECE_HTML) f.srcdoc = pieceSrcdoc(q); else f.src = `${PIECE}?${q}`;
     let tries = 0;
     f.onload = () => {
-      const poll = () => {
+      const poll = async () => {
         let L = null; try { L = f.contentWindow.__lab; } catch {}
         if (L && L.scene && L.scene.layerAt && L.load) {
-          try { L.pause(true); res(codes.map(c => { L.load(c); return summary(L.scene); })); } catch (e) { rej(e); }
+          try { L.pause(true); res(await fn(L, f)); } catch (e) { rej(e); }
           f.remove();
         } else if (++tries > 120) { f.remove(); rej(new Error('The piece did not load.')); }
         else setTimeout(poll, 50);
@@ -362,6 +416,7 @@ function readScenes(codes) {
     document.body.append(f);
   });
 }
+const readScenes = codes => withPiece(`embed=1&seed=${encodeURIComponent(codes[0])}`, L => codes.map(c => { L.load(c); return summary(L.scene); }));
 // what the map needs of a scene: its bands (colours, gravel spacing, share of the picture), its spheres, its star colour,
 // and whether it holds an eclipse or a black hole
 function summary(sc) {
@@ -713,15 +768,23 @@ function initGL() {
 // every belt evenly.
 const arm = (rho, k) => k * Math.PI + 2.2 * Math.log(1 + rho / 90);
 function makeCluster(codes, scenes, num, phase, layout) {
-  const home = num === 0;
+  const home = num === 0, own = num < 0, M = scenes.length;
   const RL = rng(layout), at = [];
-  for (let i = 0; i < N_SYS; i++) for (let k = 0; k < 300; k++) {
+  for (let i = 0; i < M; i++) for (let k = 0; k < 300; k++) {
     const rho = 70 + 500 * Math.pow((i + 0.6) / N_SYS, 0.85) * (0.85 + 0.3 * RL()), ang = phase + arm(rho, i % 2) + (RL() - 0.5) * 0.9;
     const p = [Math.cos(ang) * rho, gauss(RL) * (8 + 0.05 * rho), Math.sin(ang) * rho];
     if (k === 299 || at.every(q => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) > 60)) { at.push(p); break; }
   }
+  // A cluster of the visitor's own pieces has fewer systems: they are drawn closer together, round their own middle, and
+  // fit is the distance from which all of them are in sight.
+  let fit = 0;
+  if (own) {
+    const mid = [0, 1, 2].map(k => at.reduce((a, p) => a + p[k], 0) / M);
+    for (const p of at) for (let k = 0; k < 3; k++) p[k] = (p[k] - mid[k]) * 0.5;
+    fit = clamp((Math.max(...at.map(p => Math.hypot(...p))) + 16) / Math.tan(FOV / 2) * 1.05, 34, MAP);
+  }
   const rhoOf = at.map(p => Math.hypot(p[0], p[2]));
-  const cap = N_SYS * (PER_SYS + 12) + 8, A = new Float32Array(cap * 4), K = new Uint8Array(cap * 4), S = new Float32Array(cap * 3), SYS = new Float32Array((N_SYS + 1) * 24);
+  const cap = M * (PER_SYS + 12) + 8, A = new Float32Array(cap * 4), K = new Uint8Array(cap * 4), S = new Float32Array(cap * 3), SYS = new Float32Array((N_SYS + 1) * 24);
   const PA = new Float32Array(N_SYS * 40), PS = new Float32Array(N_SYS * 30); let np = 0;      // the spheres' own rows, kept for posOf after the rest has gone to the GPU
   const kept = () => { PA.set(A.subarray(n * 4 - 4, n * 4), np * 4); PS.set(S.subarray(n * 3 - 3, n * 3), np * 3); return np++; };
   const E = new Float32Array((N_SYS + 1) * EDGE_ROWS * EDGE_N), BK = new Uint8Array((N_SYS + 1) * EDGE_ROWS * EDGE_N * 4);
@@ -810,7 +873,7 @@ function makeCluster(codes, scenes, num, phase, layout) {
     else if (kind < 0.8) { rho = Math.abs(gauss(RF)) * 110 + 8; ang = RF() * 6.283; }
     else { rho = 950 * Math.sqrt(RF()); ang = RF() * 6.283; }
     FP.set([Math.cos(ang) * rho, gauss(RF) * (14 + 0.07 * rho), Math.sin(ang) * rho, 0.12 + 0.5 * RF() ** 3], i * 4);
-    const tint = mixc([0.82, 0.82, 0.85], sys[Math.floor(RF() * N_SYS)].mean, 0.45 * RF());
+    const tint = mixc([0.82, 0.82, 0.85], sys[Math.floor(RF() * M)].mean, 0.45 * RF());
     FK.set([byte(tint[0]), byte(tint[1]), byte(tint[2]), byte(RF())], i * 4);
   }
   // to the GPU: one set of buffers for the cluster, and for each system a view of its own stretch of them
@@ -828,7 +891,7 @@ function makeCluster(codes, scenes, num, phase, layout) {
   gl.bindVertexArray(null);
   const table = (fmt, w, h, kind, data, type = gl.FLOAT) => { const tx = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tx); gl.texImage2D(gl.TEXTURE_2D, 0, fmt, w, h, 0, kind, type, data);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); return tx; };
-  return { n: num, home, phase, sys, SYS, E, PA, PS, bufs, vaos, fieldVao, sysTex: table(gl.RGBA32F, 6, N_SYS + 1, gl.RGBA, SYS), edgeTex: table(gl.R32F, EDGE_N, (N_SYS + 1) * EDGE_ROWS, gl.RED, E), bokTex: table(gl.RGBA8, EDGE_N, (N_SYS + 1) * EDGE_ROWS, gl.RGBA, BK, gl.UNSIGNED_BYTE), cairn };
+  return { n: num, home, own, fit, phase, sys, SYS, E, PA, PS, bufs, vaos, fieldVao, sysTex: table(gl.RGBA32F, 6, N_SYS + 1, gl.RGBA, SYS), edgeTex: table(gl.R32F, EDGE_N, (N_SYS + 1) * EDGE_ROWS, gl.RED, E), bokTex: table(gl.RGBA8, EDGE_N, (N_SYS + 1) * EDGE_ROWS, gl.RGBA, BK, gl.UNSIGNED_BYTE), cairn };
 }
 function dispose(cl) { for (const b of cl.bufs) gl.deleteBuffer(b); for (const v of cl.vaos) gl.deleteVertexArray(v); gl.deleteTexture(cl.sysTex); gl.deleteTexture(cl.edgeTex); gl.deleteTexture(cl.bokTex); }
 // where sphere idx of a cluster is now (the same sum the vertex shader does)
@@ -845,10 +908,15 @@ function posOf(cl, idx) {
 }
 // Every cluster has a number, and its number gives it its place on the map (they lie on a spiral, the cairn's in the
 // middle), the way its arms wind, and its 36 seeds. So a cluster is the same for everyone and on every visit.
-const clusterAt = n => { const a = n * 2.39996, r = 5500 * Math.sqrt(n); return [Math.cos(a) * r, (rng(7000 + n)() - 0.5) * 2600, Math.sin(a) * r]; };
+// (The visitor's own clusters, numbered below zero, lie on a spiral of their own, above the map and to one side of it.)
+const OWN_AT = [-9000, 14000, 16000];
+const clusterAt = n => {
+  if (n < 0) { const k = Math.max(0, mine ? mine.groups.findIndex(g => g.n === n) : 0), a = k * 2.39996, r = 5500 * Math.sqrt(k); return [OWN_AT[0] + Math.cos(a) * r, OWN_AT[1] + (rng(7000 + k)() - 0.5) * 2600, OWN_AT[2] + Math.sin(a) * r]; }
+  const a = n * 2.39996, r = 5500 * Math.sqrt(n); return [Math.cos(a) * r, (rng(7000 + n)() - 0.5) * 2600, Math.sin(a) * r];
+};
 const clusterPhase = n => n === 0 ? 0 : rng(8000 + n)() * 6.283;
 const clusterCodes = n => n === 0 ? CODES : codesFrom(rng(20261115 + n * 7919), null);
-const clusterName = n => n === 0 ? 'the cairn\'s cluster' : `cluster ${n}`;
+const clusterName = n => n < 0 ? ownName(n) : n === 0 ? 'the cairn\'s cluster' : `cluster ${n}`;
 // Cluster `to` as it is seen from cluster `from`: in its true direction, drawn no nearer than 8,500 and no farther than 12,500.
 function farOf(from, to) {
   const a = clusterAt(from), p = clusterAt(to).map((v, i) => v - a[i]), d = Math.hypot(...p), k = clamp(d, 8500, 12500) / d;
@@ -859,6 +927,11 @@ function farOf(from, to) {
 // cairn's wherever it is, and the one you came from (cameFrom). Before the counts have come, all ten are the nearest.
 let cameFrom = null;
 function makeFars(n, from) {
+  if (n < 0) {                                       // from one of your own clusters: your others, and the cairn's
+    const out = (mine ? mine.groups : []).filter(g => g.n !== n).map(g => farOf(n, g.n)); out.push(farOf(n, 0));
+    if (from) { const j = out.findIndex(f => f.n === from.n); if (j >= 0) out[j] = from; else out.push(from); }
+    return out;
+  }
   const here = clusterAt(n), all = [];
   for (let m = 0; m < N_CLUSTERS; m++) if (m !== n) all.push({ m, d: Math.hypot(...clusterAt(m).map((v, i) => v - here[i])) });
   all.sort((a, b) => a.d - b.d);
@@ -900,10 +973,11 @@ const othersHere = () => shared.get(C.n) || [];
 let wallet = '', counts = {}, countsAt = 0, total = null, seen = null, watchT = 0;   // (seen: the cluster and its change counter, as last loaded)
 const shortAddr = a => a.length > 20 ? a.slice(0, 6) + '…' + a.slice(-4) : a;
 const ask = (path, init) => fetch(API + path, init).then(async r => ({ ok: r.ok, body: await r.json().catch(() => ({})) }), () => ({ ok: false, body: {} }));
-async function connect() {
-  const eth = window.ethereum;
-  if (!eth) { toast('No wallet was found in this browser.'); return ''; }
-  try { const [a] = await eth.request({ method: 'eth_requestAccounts' }); wallet = String(a || '').toLowerCase(); } catch { return ''; }
+// (quiet: only the address the wallet has already given this page, without asking the visitor; for a page opened at #systems or #collection)
+async function connect(quiet) {
+  const eth = window.ethereum; quiet = quiet === true;
+  if (!eth) { if (!quiet) toast('No wallet was found in this browser.'); return ''; }
+  try { const [a] = await eth.request({ method: quiet ? 'eth_accounts' : 'eth_requestAccounts' }); wallet = String(a || '').toLowerCase(); } catch { return ''; }
   $('conn').textContent = wallet ? shortAddr(wallet) : 'connect';
   if (API && wallet) {                                 // the constellation this address left earlier, from another browser perhaps
     const { ok, body } = await ask('/me?addr=' + wallet); asked = ok ? wallet : '';
@@ -925,6 +999,7 @@ async function disconnect() {
   if (fig.addr && fig.addr === was) { fig = { cluster: 0, codes: [], name: '', addr: '' }; save(); }
   keepSig(null); if (chat.authed) { chatDrop(); chatConnect(); }
   makeLabels(); renderFig(); wake();
+  if (!MINE_Q && (collOpen() || C.n < 0)) goTo('space');      // (the wallet's own pieces: back to the map)
 }
 // how full every cluster is, asked again at most once a minute (or at once, with fresh)
 async function loadCounts(fresh) {
@@ -942,6 +1017,7 @@ function renderCount() {
 async function arrive() {
   makeLabels(); renderFig(); wake();
   if (!API) return;
+  if (C.n < 0) { watch(); return; }                    // (one of your own clusters: the server holds nothing about it)
   const n = C.n, [here] = await Promise.all([ask('/clusters/' + n), loadCounts()]);
   if (here.ok && C.n === n && fig.cluster === n && fig.addr) {      // (your constellation renamed on the server: the name it has there)
     const mine = (here.body.figs || []).find(f => f.by === shortAddr(fig.addr));
@@ -960,11 +1036,11 @@ function watch() {
   if (!API || document.hidden) return;
   watchT = setTimeout(async () => {
     watchT = 0; if (document.hidden) return;
-    const n = C.n, r = await ask('/version?c=' + n);
+    const n = Math.max(0, C.n), r = await ask('/version?c=' + n);
     if (r.ok) {
       total = r.body.total; counts[n] = r.body.n; renderCount();
       if (r.body.chat > chat.last) { chat.last = r.body.chat; markChat(); }
-      if (seen && seen.c === n && r.body.cv !== seen.v && !jumping) { await arrive(); return; }   // (arrive watches again)
+      if (seen && seen.c === n && C.n === n && r.body.cv !== seen.v && !jumping) { await arrive(); return; }   // (arrive watches again)
       if (cam.dist > 1200) { await loadCounts(); refreshFars(); makeLabels(); }
     }
     watch();
@@ -1126,8 +1202,14 @@ async function jump(j, then) {
   jumping = true; showView('list'); hover = null; canvas.classList.remove('over');
   try {
     let next = HOMEC;
-    if (!F.home) { $('where').textContent = `Reading the ${N_SYS} seeds of cluster ${F.n}…`; const codes = clusterCodes(F.n); next = makeCluster(codes, await readScenes(codes), F.n, F.phase, 5000 + F.n); }
-    go({ k: 'point', p: F.pos.slice() }, MAP, () => { fade = 1; jumping = false; aim.dist = MAP; if (then) then(); }, { next, P: F.pos.slice(), swapped: false });
+    if (F.n < 0) {                                     // one of your own clusters: a family's pieces are read as its panels
+      const g = mineOf(F.n); if (!g) throw new Error('That cluster belongs to an address that is no longer connected.');
+      $('where').textContent = `Reading ${g.codes.length === 1 ? 'your seed' : `your ${g.codes.length} seeds`}…`;
+      next = makeCluster(g.codes, await (g.fam ? withPiece(stripQ(g), L => g.codes.map((c, i) => { L.strip.focus(i); return summary(L.scene); })) : readScenes(g.codes)), F.n, F.phase, 9000 + hashStr(g.codes[0]) % 100000);
+      next.sys.forEach((s, i) => { s.token = g.ids[i]; s.place = g.fam ? i : -1; s.of = g.codes.length; s.q = pieceQ(g, i); });
+    } else if (!F.home) { $('where').textContent = `Reading the ${N_SYS} seeds of cluster ${F.n}…`; const codes = clusterCodes(F.n); next = makeCluster(codes, await readScenes(codes), F.n, F.phase, 5000 + F.n); }
+    const d = next.fit || MAP;
+    go({ k: 'point', p: F.pos.slice() }, d, () => { fade = 1; jumping = false; aim.dist = d; if (then) then(); }, { next, P: F.pos.slice(), swapped: false });
   } catch (e) { jumping = false; toast(String(e && e.message || e)); }
 }
 // travel to cluster n, whether or not it is in sight, and then do something there
@@ -1146,7 +1228,7 @@ function jumpStep(e) {
     travel.from = travel.from.map((v, i) => v - P[i]); follow = { k: 'cairn' };
     if (!old.home) dispose(old);
     C = J.next; cameFrom = { n: old.n, pos: P.map(v => -v), phase: old.phase, home: old.home }; fars = makeFars(C.n, cameFrom); sel = -1; arrive();
-    makeLabels(); renderList(); renderFig();
+    makeLabels(); renderList(); renderFig(); markNav();
   }
   fade = smooth(0.5, 0.66, e);
 }
@@ -1198,7 +1280,7 @@ function clickAt(cx, cy) {
 
 // ---- the panels
 let pieceFor = null;
-function showView(name) { for (const v of ['list', 'sys', 'cairn', 'mint', 'far']) $('v-' + v).hidden = v !== name; if (name !== 'sys') sel = -1; syncPiece(); }
+function showView(name) { for (const v of ['list', 'sys', 'cairn', 'mint', 'far', 'mine']) $('v-' + v).hidden = v !== name; if (name !== 'sys') sel = -1; syncPiece(); }
 function openPanel(yes) { if (yes && PHONE.matches && !$('figCard').hidden) { $('figCard').hidden = true; renderFig(); } if (yes && PHONE.matches && chatOpen()) closeChat(); $('panel').hidden = !yes; $('openPanel').hidden = yes; syncSheets(); syncPiece(); wake(); }
 // The panel floats over the map's right side, so while it shows, the middle of the view (where what you travel to comes
 // to rest) is the middle of the map that is left: offX shifts the whole picture left by half the panel's width, in the
@@ -1217,7 +1299,7 @@ function syncPiece() {
   if (want === pieceFor) return;
   pieceFor = want; $('pieceBox').replaceChildren();
   if (!want) return;
-  const f = document.createElement('iframe'), q = `embed=1&pad=0&seed=${encodeURIComponent(want.code)}`;
+  const f = document.createElement('iframe'), q = want.q || `embed=1&pad=0&seed=${encodeURIComponent(want.code)}`;
   f.title = `The piece ${want.code}`; f.style.aspectRatio = `1 / ${want.sc.H}`;
   if (PIECE_HTML) f.srcdoc = pieceSrcdoc(q); else f.src = `${PIECE}?${q}`;
   $('pieceBox').append(f);
@@ -1228,28 +1310,28 @@ function openSys(i, fly) {
   sel = i;
   $('sysCode').textContent = s.code;
   $('sysSub').textContent = [tr.Palette, tr.Folds, tr.Edge, tr.Rare !== 'none' ? tr.Rare : ''].filter(Boolean).join(' · ');
-  $('traits').replaceChildren(...Object.entries(tr).filter(([, v]) => v !== 'none').flatMap(([k, v]) => { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = k; dd.textContent = v; return [dt, dd]; }));
+  $('traits').replaceChildren(...[...(s.token ? [['Token', s.token], ...(s.place >= 0 ? [['Family', `${s.place + 1} of ${s.of}`]] : [])] : []), ...Object.entries(tr).filter(([k, v]) => v !== 'none' && !(k === 'Family' && s.place >= 0))].flatMap(([k, v]) => { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = k; dd.textContent = v; return [dt, dd]; }));
   showView('sys'); openPanel(true);
   if (fly) go({ k: 'sys', i }, s.Rs * 2.1);
 }
 function openCairn() { if (jumping) return; atHome(() => { showView('cairn'); openPanel(true); go({ k: 'cairn' }, 7); }); }
-function toMap() { if (jumping) return; showView('list'); go({ k: 'cairn' }, MAP); }
+function toMap() { if (jumping) return; showView('list'); go({ k: 'cairn' }, C.fit || MAP); }
 function toFar() { if (jumping) return; showView('far'); renderFar(); openPanel(true); go({ k: 'cairn' }, FAR_VIEW); }
 // The panel's list of the other clusters in sight, with how many constellations each holds: those with room first, then
 // the full ones, each nearest first. A click on one travels to it; pointing at one marks it on the map.
 function renderFar() {
   const here = clusterAt(C.n), d = n => Math.hypot(...clusterAt(n).map((v, i) => v - here[i]));
   const open = countsAt ? N_CLUSTERS - Object.values(counts).filter(n => n >= FIG_CAP).length : 0;
-  $('farWhere').textContent = `In sight from ${clusterName(C.n)}.` + (!countsAt ? '' : !open ? ' Every cluster is full.' : ` ${open} of the ${N_CLUSTERS} clusters ${open === 1 ? 'has' : 'have'} room.`);
+  $('farWhere').textContent = `In sight from ${clusterName(C.n)}.` + (!countsAt || C.n < 0 ? '' : !open ? ' Every cluster is full.' : ` ${open} of the ${N_CLUSTERS} clusters ${open === 1 ? 'has' : 'have'} room.`);
   const full = n => (counts[n] || 0) >= FIG_CAP;
   $('farRows').replaceChildren(...fars.map((f, j) => ({ f, j, d: d(f.n) })).sort((a, b) => full(a.f.n) - full(b.f.n) || a.d - b.d).map(({ f, j }) => {
-    const n = counts[f.n] || 0, mark = h => () => { hover = h; labelKey = ''; wake(); };
+    const n = counts[f.n] || 0, g = mineOf(f.n), mark = h => () => { hover = h; labelKey = ''; wake(); };
     const row = el('button', { type: 'button', onclick: () => travelTo(f.n), onpointerenter: mark({ k: 'far', j }), onpointerleave: mark(null) },
-      el('span', {}, clusterName(f.n)), el('small', { className: n >= FIG_CAP ? 'full' : '' }, n >= FIG_CAP ? 'full' : `${n} of ${FIG_CAP}`));
+      el('span', {}, clusterName(f.n)), el('small', { className: f.n >= 0 && n >= FIG_CAP ? 'full' : '' }, f.n < 0 ? (g ? ownTokens(g) : '') : n >= FIG_CAP ? 'full' : `${n} of ${FIG_CAP}`));
     return row;
   }));
 }
-function homeView() { if (jumping) return; showView('list'); go({ k: 'cairn' }, HOME); }
+function homeView() { if (jumping) return; showView('list'); go({ k: 'cairn' }, C.fit || HOME); }
 function el(tag, props, ...kids) { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; }
 // The constellation's card and its menu entry. The allowlist closed on November 20, 2026 (the server takes no more), so the
 // card shows the constellation this browser or the connected wallet left, or says that none can be left now.
@@ -1275,9 +1357,10 @@ function swatch(s) {
   return `radial-gradient(circle closest-side, ${stops.join(', ')}, #000 100%)`;
 }
 function renderList() {
-  $('nSys').textContent = `(${N_SYS})`; $('filter').value = '';
-  $('whichCluster').textContent = `in ${clusterName(C.n)}`;
-  $('rows').replaceChildren(...[...C.sys].sort((a, b) => a.rho - b.rho).map(s => {
+  const g = mineOf(C.n);
+  $('nSys').textContent = `(${C.sys.length})`; $('filter').value = '';
+  $('whichCluster').textContent = g ? `${ownName(C.n)} · ${ownTokens(g)}` : `in ${clusterName(C.n)}`;
+  $('rows').replaceChildren(...[...C.sys].sort((a, b) => C.own ? a.i - b.i : a.rho - b.rho).map(s => {
     const tr = s.sc.traits, sub = [tr.Palette, tr.Folds, s.centre === 'eclipse' ? 'Eclipse' : s.centre === 'hole' ? 'Black hole' : '', tr.Rare !== 'none' ? tr.Rare : ''].filter(Boolean).join(' · ');
     const row = el('button', { type: 'button', onclick: () => openSys(s.i, true) }, el('div', { className: 'sw' }), el('span', {}, s.code, el('small', {}, sub)));
     row.firstChild.style.background = swatch(s); row.dataset.find = `${s.code} ${sub}`.toLowerCase();
@@ -1286,6 +1369,162 @@ function renderList() {
 }
 let toastTimer = 0;
 function toast(text) { $('toast').textContent = text; $('toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').hidden = true, 5200); }
+
+// ---- the visitor's own pieces: "my systems" and "my collection". The contract is asked which families the connected
+// address minted (familiesOf: a family for each mint, whoever holds the pieces now). In "my systems" every family is a
+// cluster of its own with a system for each of its pieces, and the pieces minted one at a time share a cluster. These
+// clusters are numbered below zero (a family's by its first token), lie apart from the map's, and are travelled to like
+// any other. "My collection" shows the same pieces as still pictures, a row for each family; a click opens one larger,
+// moving. A family is one wide piece cut into panels, so each of its pieces is drawn with the family's seed, its place
+// and the family's size, as the contract hands them to the artwork.
+// Nothing here runs on its own: the contract is read when one of the two is chosen, the pictures are drawn once and
+// kept (one for each piece of the address last read, twenty at most), and the map stops drawing under the collection.
+const SINGLES = -1e6, CODE = /^[abcdefghjkmnpqrstuvwxyz2-9]{10}$/, STILL_H = 640;      // (a still's height: twice the height it shows at)
+let mine = null, collRun = 0;                           // (mine: { addr, groups: [{ n, fam, ids, codes }], waiting })
+const stills = new Map();                               // seed → { url, H, traits }
+const mineOf = n => n < 0 && mine ? mine.groups.find(g => g.n === n) || null : null;
+const collOpen = () => !$('coll').hidden;
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+const ownName = n => { const g = mineOf(n); return !g ? 'your cluster' : g.fam ? `your family of ${g.codes.length}` : g.codes.length === 1 ? 'your single piece' : 'your single pieces'; };
+const ownTokens = g => g.fam ? `tokens ${g.ids[0]} to ${g.ids.at(-1)}` : `${g.ids.length === 1 ? 'token' : 'tokens'} ${g.ids.join(', ')}`;
+const pieceQ = (g, i) => `embed=1&pad=0&seed=${g.codes[i]}` + (g.fam ? `&family=${g.codes[0]}&fi=${i}&fn=${g.codes.length}` : '');
+const stripQ = g => `embed=1&strip=1&seed=${g.codes[0]}&family=${g.codes[0]}&fi=0&fn=${g.codes.length}&seeds=${g.codes.join(',')}`;      // (the whole family in one frame)
+// one read of the contract (eth_call), from the first endpoint that answers
+async function chainCall(data) {
+  let last = new Error('No endpoint answered.');
+  for (const url of MINT.rpcs) {
+    try {
+      const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(15000),
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: MINT.vigil, data }, 'latest'] }) });
+      const j = await r.json();
+      if (typeof j.result === 'string' && j.result.length >= 2 + 6 * 64) return j.result;
+      last = new Error(j.error && j.error.message || 'The contract gave no answer.');
+    } catch (e) { last = e; }
+  }
+  throw last;
+}
+// What an address minted. familiesOf(address) returns (uint256[] firsts, uint256[] sizes, bytes10[] codes): three offsets,
+// then each array as its length and its words; a family's tokens are first to first + size - 1, and the codes run one
+// family after another. A piece has no code until the block after its mint is sealed: its family waits until all have.
+async function loadMine(addr) {
+  let fams;
+  if (MINE_Q) { let id = 1; fams = MINE_Q.split(';').map(f => f.split(',').filter(c => CODE.test(c))).filter(c => c.length).map(codes => ({ ids: codes.map(() => id++), codes })); }
+  else {
+    const w = (await chainCall('0x3e82f927' + addr.slice(2).padStart(64, '0'))).slice(2).match(/.{64}/g) || [];
+    const arr = o => { const at = parseInt(w[o], 16) / 32, n = parseInt(w[at], 16); return w.slice(at + 1, at + 1 + n); };
+    const firsts = arr(0).map(x => parseInt(x, 16)), sizes = arr(1).map(x => parseInt(x, 16));
+    const codes = arr(2).map(x => { const c = String.fromCharCode(...x.slice(0, 20).match(/../g).map(b => parseInt(b, 16))); return CODE.test(c) ? c : ''; });
+    if (firsts.length !== sizes.length || sizes.some(n => !(n >= 1 && n <= 20)) || sizes.reduce((a, n) => a + n, 0) !== codes.length) throw new Error('The contract\'s answer could not be read.');
+    let k = 0; fams = firsts.map((f, i) => ({ ids: Array.from({ length: sizes[i] }, (_, j) => f + j), codes: codes.slice(k, k += sizes[i]) }));
+  }
+  const drawn = fams.filter(f => f.codes.every(Boolean)), lone = drawn.filter(f => f.ids.length === 1);
+  const groups = drawn.filter(f => f.ids.length > 1).map(f => ({ n: -f.ids[0], fam: true, ids: f.ids, codes: f.codes }));
+  if (lone.length) groups.push({ n: SINGLES, fam: false, ids: lone.map(f => f.ids[0]), codes: lone.map(f => f.codes[0]) });
+  groups.sort((a, b) => a.ids[0] - b.ids[0]);
+  return { addr, groups, waiting: fams.reduce((a, f) => a + f.ids.length, 0) - drawn.reduce((a, f) => a + f.ids.length, 0) };
+}
+// which of the bar's views is showing; its link is marked, and the address ends in its name, so the page can be opened there
+function markNav() {
+  const cur = collOpen() ? 'collection' : C && C.n < 0 ? 'systems' : 'space';
+  for (const a of document.querySelectorAll('[data-go]')) if (a.dataset.go === cur) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  try { history.replaceState(null, '', cur === 'space' ? location.pathname + location.search : '#' + cur); } catch {}
+}
+// The bar's links. "space" returns to the map. The other two need an address: the wallet is asked for one if none is
+// connected, the contract is read, and then the first of the address's clusters is travelled to, or the collection opens.
+// When there is nothing to show, the panel says why.
+async function goTo(where, quiet) {
+  if (!ready || jumping) return;
+  if (where === 'space') { closeColl(); if (C.n < 0) travelTo(0); return; }
+  if (!MINE_Q && !wallet) await connect(quiet === true);
+  if (!MINE_Q && !wallet) return mineNote(where, 'wallet');
+  try { mine = await loadMine(wallet || 'test'); } catch { return mineNote(where, 'error'); }
+  if (!mine.groups.length) return mineNote(where, 'none');
+  if (jumping) return;
+  if (where === 'collection') return openColl();
+  closeColl();
+  if (mineOf(C.n)) { openPanel(true); toMap(); } else travelTo(mine.groups[0].n);
+}
+function mineNote(where, kind) {
+  const again = label => el('div', { className: 'row' }, el('button', { type: 'button', className: 'btn', onclick: () => goTo(where) }, label));
+  $('mineTitle').textContent = where === 'collection' ? 'My collection' : 'My systems';
+  $('mineDo').replaceChildren(...(kind === 'wallet' ? [el('p', {}, 'Connect a wallet to see the pieces it minted.'), again('Connect')]
+    : kind === 'none' ? [el('p', {}, `The address ${shortAddr(wallet)} has minted no pieces.`),
+      ...(mine.waiting ? [el('p', { className: 'dim' }, `${plural(mine.waiting, 'piece is', 'pieces are')} waiting for a seed. A seed is set about half a minute after the mint.`)] : []), again('Read again')]
+    : [el('p', {}, 'The mint contract could not be read.'), again('Try again')]));
+  closeColl(); showView('mine'); openPanel(true);
+}
+// The collection: a row for each family, the pieces minted one at a time in a row of their own. The pictures are drawn
+// one family at a time by the piece itself, in a hidden frame that is removed when the family is done.
+function openColl() {
+  if (PHONE.matches) { openPanel(false); if (!$('figCard').hidden) closeFig(); }
+  if (chatOpen()) closeChat();
+  $('coll').hidden = false; $('coll').scrollTop = 0; stop(); markNav(); renderColl();
+}
+function closeColl() {
+  if (!collOpen()) return;
+  collRun++; if ($('big').open) $('big').close();
+  $('coll').hidden = true; markNav(); wake();
+}
+function renderColl() {
+  const run = ++collRun, groups = mine.groups, all = new Set(groups.flatMap(g => g.codes));
+  for (const [c, s] of stills) if (!all.has(c)) { URL.revokeObjectURL(s.url); stills.delete(c); }
+  $('collWho').textContent = `${plural(all.size, 'piece', 'pieces')} minted by ${shortAddr(mine.addr)}` + (mine.waiting ? ` · ${mine.waiting} waiting for a seed` : '');
+  $('collBody').replaceChildren(...groups.map(g => el('section', { className: 'fam' },
+    el('div', { className: 'head' }, el('h3', {}, g.fam ? `Family of ${g.codes.length}` : g.codes.length === 1 ? 'Single piece' : 'Single pieces'),
+      el('span', { className: 'dim' }, ownTokens(g)), el('button', { type: 'button', className: 'link', onclick: () => { closeColl(); travelTo(g.n, toMap); } }, 'show as systems')),
+    el('div', { className: 'pieces' }, ...g.codes.map((c, i) => {
+      const b = el('button', { type: 'button', disabled: true, title: `Open ${c}`, onclick: () => openBig(g, i) }); b.dataset.code = c;
+      return el('figure', {}, b, el('figcaption', {}, c));
+    })))));
+  for (const c of all) showStill(c);
+  (async () => {
+    try { for (const g of groups) { if (run !== collRun) return; if (g.codes.some(c => !stills.has(c))) await stillsOf(g, run); } }
+    catch (e) { if (run === collRun) $('collWho').textContent = `The pictures could not be drawn: ${String(e && e.message || e)}`; }
+  })();
+}
+function showStill(c) {
+  const s = stills.get(c), b = $('collBody').querySelector(`button[data-code="${c}"]`);
+  if (!s || !b) return;
+  b.style.aspectRatio = `1 / ${s.H}`; b.disabled = false; b.replaceChildren(el('img', { src: s.url, alt: `The piece ${c}`, draggable: false }));
+}
+// A group's pictures. A family's come from one frame that holds the whole family (strip.still: a piece of it, without the
+// messenger). A single piece's comes from the piece's own still, which it hands over by message ({ vigilStill }).
+async function stillsOf(g, run) {
+  const keep = (c, blob, sc) => { if (!blob) return; stills.set(c, { url: URL.createObjectURL(blob), H: sc.H, traits: { ...sc.traits } }); showStill(c); };
+  if (g.fam) return withPiece(stripQ(g), async L => {
+    for (let i = 0; i < g.codes.length && run === collRun; i++) {
+      if (stills.has(g.codes[i])) continue;
+      L.strip.focus(i); const sc = L.scene; keep(g.codes[i], await L.strip.still(i, Math.max(1, Math.round(STILL_H / sc.H))), sc);
+    }
+  });
+  return withPiece(`embed=1&seed=${g.codes[0]}`, async (L, f) => {
+    for (const c of g.codes) {
+      if (run !== collRun) break;
+      if (stills.has(c)) continue;
+      L.load(c); const sc = L.scene;
+      keep(c, await new Promise((res, rej) => {
+        const on = e => { if (e.source !== f.contentWindow || !e.data || !(e.data.vigilStill instanceof Blob)) return; clearTimeout(late); removeEventListener('message', on); res(e.data.vigilStill); };
+        const late = setTimeout(() => { removeEventListener('message', on); rej(new Error('the piece gave no picture.')); }, 10000);
+        addEventListener('message', on); f.contentWindow.postMessage({ vigilStill: { h: STILL_H } }, '*');
+      }), sc);
+    }
+  });
+}
+// one piece larger, moving, with its token, its place in its family and its traits; closed, its frame is removed
+function openBig(g, i) {
+  const c = g.codes[i], s = stills.get(c); if (!s) return;
+  const f = document.createElement('iframe'), q = pieceQ(g, i);
+  f.title = `The piece ${c}`; if (PIECE_HTML) f.srcdoc = pieceSrcdoc(q); else f.src = `${PIECE}?${q}`;
+  $('bigBox').style.aspectRatio = `1 / ${s.H}`; $('bigBox').replaceChildren(f);
+  $('bigCode').textContent = c;
+  $('bigSub').textContent = [s.traits.Palette, s.traits.Folds, s.traits.Edge, s.traits.Rare !== 'none' ? s.traits.Rare : ''].filter(Boolean).join(' · ');
+  $('bigTraits').replaceChildren(...[['Token', g.ids[i]], ...(g.fam ? [['Family', `${i + 1} of ${g.codes.length}`]] : []), ...Object.entries(s.traits).filter(([k, v]) => v !== 'none' && !(k === 'Family' && g.fam))].flatMap(([k, v]) => [el('dt', {}, k), el('dd', {}, String(v))]));
+  $('bigSys').onclick = () => { closeColl(); travelTo(g.n, () => openSys(i, true)); };
+  $('big').showModal();
+}
+$('big').addEventListener('close', () => $('bigBox').replaceChildren());
+$('big').addEventListener('click', e => { if (e.target === $('big')) $('big').close(); });      // (a click outside the box)
+$('bigClose').onclick = () => $('big').close();
 
 // ---- names on the map: each system's seed beside it, the cairn's beside the cairn, and one beside every other cluster.
 // A name can be clicked like the thing it names (pick looks through labelShown).
@@ -1297,7 +1536,8 @@ function makeLabels() {
   for (const f of othersHere()) { const q = sysOf(f.codes); labels.push({ e: el('div', {}, f.name), fig: midOf(q), of: q, hit: { k: 'fig' } }); }       // other people's: shown while you point at one of their systems
   fars.forEach((f, j) => {                       // another cluster: its name, and under it how many constellations it holds ("full" in red when it has no room)
     const n = counts[f.n] || 0, e = el('div', {}, clusterName(f.n));
-    if (n) e.append(el('span', { className: n >= FIG_CAP ? 'held full' : 'held' }, n >= FIG_CAP ? 'full' : `${n} of ${FIG_CAP}`));
+    if (f.n < 0) { const g = mineOf(f.n); if (g) e.append(el('span', { className: 'held' }, ownTokens(g))); }
+    else if (n) e.append(el('span', { className: n >= FIG_CAP ? 'held full' : 'held' }, n >= FIG_CAP ? 'full' : `${n} of ${FIG_CAP}`));
     labels.push({ e, far: f, hit: { k: 'far', j } });
   });
   $('labels').replaceChildren(...labels.map(l => l.e));
@@ -1337,12 +1577,13 @@ function placeText() {
   if (free && d < 400) s = C.sys.find(q => Math.hypot(q.at[0] - cam.T[0], q.at[1] - cam.T[1], q.at[2] - cam.T[2]) < q.Rs * 1.5) || null;   // looking at a system after a scroll or a drag
   const text = jumping ? (travel ? 'Traveling to another cluster' : $('where').textContent)
     : s ? (d > s.Rs * 9 ? `Near ${s.code}` : `At ${s.code} · ${s.sc.traits.Palette} · ${s.sc.traits.Folds}`)
+    : C.n < 0 ? ownName(C.n).replace(/^y/, 'Y')
     : d > 2600 ? (C.home ? 'In the cairn\'s cluster' : `In cluster ${C.n}`)
     : C.home ? (free && off > 60 ? 'In the cairn\'s cluster' : d < 30 ? 'At the cairn' : d < 520 ? 'Near the cairn, at the center of its cluster' : 'The cairn\'s cluster')
     : d < 520 && !(free && off > 60) ? `Near the center of cluster ${C.n}` : `Cluster ${C.n}`;
   if ($('where').textContent !== text) $('where').textContent = text;
   // after a line that names the cluster, how many constellations it holds, as in the list of clusters in sight
-  const n = counts[C.n] || 0, held = !jumping && !s && countsAt ? (n >= FIG_CAP ? 'full' : `${n} of ${FIG_CAP}`) : '';
+  const n = counts[C.n] || 0, held = !jumping && !s && countsAt && C.n >= 0 ? (n >= FIG_CAP ? 'full' : `${n} of ${FIG_CAP}`) : '';
   if (held !== heldShown) { heldShown = held; $('whereHeld').replaceChildren(...held ? [' · ', el('span', { className: n >= FIG_CAP ? 'full' : '' }, held)] : []); }
 }
 
@@ -1400,7 +1641,7 @@ canvas.addEventListener('pointerleave', () => { hoverXY = null; if (hover) { hov
 canvas.addEventListener('wheel', e => { e.preventDefault(); zoomAt(wantDist() * Math.exp(e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX - rect.left, e.clientY - rect.top); }, { passive: false });
 addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
-  if (e.key === 'Escape' && ready) toMap();
+  if (e.key === 'Escape' && ready && !collOpen()) toMap();
 });
 $('navMap').onclick = () => ready && toMap();
 $('navFar').onclick = () => ready && toFar();
@@ -1417,7 +1658,7 @@ $('figClose').onclick = closeFig;
 $('navFig').onclick = () => ready && showFig();
 $('filter').oninput = e => { const q = e.target.value.trim().toLowerCase(); for (const r of $('rows').children) r.hidden = !!q && !r.dataset.find.includes(q); };
 document.addEventListener('visibilitychange', () => document.hidden ? stop() : start());
-function start() { if (!raf && !document.hidden && ready) { last = performance.now(); raf = requestAnimationFrame(frame); } }
+function start() { if (!raf && !document.hidden && ready && !collOpen()) { last = performance.now(); raf = requestAnimationFrame(frame); } }
 function stop() { cancelAnimationFrame(raf); raf = 0; }
 function frameOnce() { if (ready && !raf) { updateView(); placeLabels(); } }
 function resize() {
@@ -1550,6 +1791,7 @@ async function begin() {
     initGL(); C = HOMEC = makeCluster(CODES, scenes, 0, 0, 77); fars = makeFars(0);
     makeLabels(); renderList(); renderFig();
     ready = true; resize(); wake(); arrive();
+    const h = location.hash.slice(1); if (h === 'systems' || h === 'collection') goTo(h, true);      // (opened at one of the visitor's own views)
   } catch (e) { $('where').textContent = String(e && e.message || e); }
 }
 // Opened as a file, the browser keeps this page from reading the piece file, but it may load a script from its own
@@ -1561,12 +1803,13 @@ function pieceFromDisk() {
     document.head.append(s);
   });
 }
-// The menu's entries have nowhere to go yet. The mark leaves a frame (the shared copy is shown inside one) in a new tab.
-for (const a of document.querySelectorAll('#bar a[href="#"], .site-links a[href="#"]')) a.onclick = e => e.preventDefault();
+// The bar's own views: the map, the visitor's systems and their collection. (The mark leaves a frame, where the shared copy is shown, in a new tab.)
+for (const a of document.querySelectorAll('[data-go]')) a.onclick = e => { e.preventDefault(); goTo(a.dataset.go); };
+for (const b of document.querySelectorAll('#side nav > button')) b.addEventListener('click', closeColl, true);      // (a map entry chosen from the phone's menu while the collection shows)
 // the menu on a phone: opened by its button, closed by choosing anything in it or by touching outside it
 function menu(open) { $('side').classList.toggle('open', open); $('menuBtn').setAttribute('aria-expanded', String(open)); }
 $('menuBtn').onclick = e => { e.stopPropagation(); menu(!$('side').classList.contains('open')); };
-for (const b of document.querySelectorAll('#side nav > button, .site-links a:not(.later)')) b.addEventListener('click', () => { if (PHONE.matches) menu(false); });
+for (const b of document.querySelectorAll('#side nav > button, .site-links a')) b.addEventListener('click', () => { if (PHONE.matches) menu(false); });
 addEventListener('pointerdown', e => { if ($('side').classList.contains('open') && !e.target.closest('#side nav, #menuBtn')) menu(false); });
 new ResizeObserver(setOff).observe($('panel')); new ResizeObserver(setOff).observe($('figCard')); new ResizeObserver(setOff).observe($('chat'));
 if (PHONE.matches) openPanel(false);                 // (a phone starts with the map alone)
@@ -1574,7 +1817,7 @@ PHONE.addEventListener('change', () => { if (PHONE.matches) { menu(false); if (!
 $('conn').onclick = onConn;
 $('disconnect').onclick = disconnect;
 addEventListener('click', e => { if (!$('connMenu').hidden && !$('connMenu').contains(e.target)) connMenu(false); });
-$('mintInfo').onclick = e => { e.preventDefault(); showView('mint'); openPanel(true); };      // the dates and the prices, in the panel
+$('mintInfo').onclick = e => { e.preventDefault(); closeColl(); showView('mint'); openPanel(true); };      // the dates and the prices, in the panel
 if (self !== top) for (const a of document.querySelectorAll('#bar a[href^="http"]')) { a.target = '_blank'; a.rel = 'noopener'; }
 if (!gl) $('where').textContent = 'This page needs WebGL2.';
 else if (location.protocol === 'file:' && !PIECE_HTML) pieceFromDisk().then(html => {
