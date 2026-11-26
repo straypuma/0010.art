@@ -231,8 +231,8 @@
       <button type="button" id="navMap"><span>This whole cluster</span></button>
       <button type="button" id="navFar"><span>Other clusters</span></button>
       <button type="button" id="navCairn"><span>The cairn</span></button>
-      <button type="button" id="navDraw"><span>Constellation</span><span class="dim" id="count"></span></button>
-      <button type="button" id="navFig" hidden><span id="figName"></span></button>
+      <button type="button" id="navDraw" hidden><span>Constellation</span><span class="dim" id="figName"></span></button>
+      <button type="button" id="navMint"><span>Mint</span><span class="dim" id="mintWhen"></span></button>
       <div class="site-links"><a href="#" aria-current="page" data-go="space">space</a><a href="#systems" data-go="systems">my systems</a><a href="#collection" data-go="collection">my collection</a><a href="https://0010.art/vigil/">vigil</a></div>
     </nav>
     <section id="figCard" hidden>
@@ -301,7 +301,7 @@
       <p>The allowlist closed on November 20 at 11:59 pm EST.</p>
       <h3>Mint phase</h3>
       <dl>
-        <dt>Begins</dt><dd>November 27th</dd>
+        <dt>Begins</dt><dd id="mintBegins">November 27th</dd>
         <dt>Allowlist</dt><dd>48 hours · 0.0099 ETH</dd>
         <dt>Public</dt><dd>48 hours · 0.015 ETH</dd>
       </dl>
@@ -1334,11 +1334,11 @@ function renderFar() {
 function homeView() { if (jumping) return; showView('list'); go({ k: 'cairn' }, C.fit || HOME); }
 function el(tag, props, ...kids) { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; }
 // The constellation's card and its menu entry. The allowlist closed on November 20, 2026 (the server takes no more), so the
-// card shows the constellation this browser or the connected wallet left, or says that none can be left now.
+// card shows the constellation this browser or the connected wallet left, or says that none can be left now. The menu
+// has the entry, with the constellation's name, only for a visitor who left one.
 function renderFig() {
   const n = fig.codes.length, box = $('figDo'), here = fig.cluster === C.n, left = n >= FIG_MIN && !!fig.name && !!fig.addr;
-  $('count').textContent = left ? 'done' : '';
-  $('navFig').hidden = !left || !$('figCard').hidden; $('figName').textContent = fig.name; renderChatFoot();      // (while the card is open, its own button shows the figure)
+  $('navDraw').hidden = !left; $('figName').textContent = fig.name; renderChatFoot();
   if (left) box.replaceChildren(
     el('p', {}, API ? `Your constellation ${fig.name} links ${n} systems in ${clusterName(fig.cluster)}, and the address ${shortAddr(fig.addr)} is on the allowlist with it.`
       : `Your constellation ${fig.name} links ${n} systems in ${clusterName(fig.cluster)}, and the address ${shortAddr(fig.addr)} is noted with it in this browser.`),
@@ -1661,7 +1661,8 @@ for (const b of document.querySelectorAll('[data-back]')) b.onclick = () => show
 $('navCairn').onclick = () => ready && openCairn();
 $('navDraw').onclick = () => ready && ($('figCard').hidden ? openFig() : closeFig());
 $('figClose').onclick = closeFig;
-$('navFig').onclick = () => ready && showFig();
+$('navMint').onclick = () => { showView('mint'); openPanel(true); };
+$('mintWhen').textContent = $('mintBegins').textContent;      // (the menu's date is the one written in the mint info)
 $('filter').oninput = e => { const q = e.target.value.trim().toLowerCase(); for (const r of $('rows').children) r.hidden = !!q && !r.dataset.find.includes(q); };
 document.addEventListener('visibilitychange', () => document.hidden ? stop() : start());
 function start() { if (!raf && !document.hidden && ready && !collOpen()) { last = performance.now(); raf = requestAnimationFrame(frame); } }
