@@ -1372,21 +1372,27 @@ function toast(text) { $('toast').textContent = text; $('toast').hidden = false;
 
 // ---- the visitor's own pieces: "my systems" and "my collection". The contract is asked which families the connected
 // address minted (familiesOf: a family for each mint, whoever holds the pieces now). In "my systems" every family is a
-// cluster of its own with a system for each of its pieces, and the pieces minted one at a time share a cluster. These
+// cluster of its own with a system for each of its pieces, and the pieces minted one at a time share a cluster. A
+// cluster here holds 20 systems at most (OWN_MAX), the most pieces a family can have. These
 // clusters are numbered below zero (a family's by its first token), lie apart from the map's, and are travelled to like
 // any other. "My collection" shows the same pieces as still pictures, a row for each family; a click opens one larger,
 // moving. A family is one wide piece cut into panels, so each of its pieces is drawn with the family's seed, its place
 // and the family's size, as the contract hands them to the artwork.
 // Nothing here runs on its own: the contract is read when one of the two is chosen, the pictures are drawn once and
 // kept (one for each piece of the address last read, twenty at most), and the map stops drawing under the collection.
-const SINGLES = -1e6, CODE = /^[abcdefghjkmnpqrstuvwxyz2-9]{10}$/, STILL_H = 640;      // (a still's height: twice the height it shows at)
+const SINGLES = -1e6, OWN_MAX = 20, CODE = /^[abcdefghjkmnpqrstuvwxyz2-9]{10}$/, STILL_H = 640;      // (a still's height: twice the height it shows at)
 let mine = null, collRun = 0;                           // (mine: { addr, groups: [{ n, fam, ids, codes }], waiting })
 const stills = new Map();                               // seed → { url, H, traits }
 const mineOf = n => n < 0 && mine ? mine.groups.find(g => g.n === n) || null : null;
 const collOpen = () => !$('coll').hidden;
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 const ownName = n => { const g = mineOf(n); return !g ? 'your cluster' : g.fam ? `your family of ${g.codes.length}` : g.codes.length === 1 ? 'your single piece' : 'your single pieces'; };
-const ownTokens = g => g.fam ? `tokens ${g.ids[0]} to ${g.ids.at(-1)}` : `${g.ids.length === 1 ? 'token' : 'tokens'} ${g.ids.join(', ')}`;
+// a group's token numbers, runs of three or more written as "5 to 9"
+const ownTokens = g => {
+  const ids = g.ids, out = [];
+  for (let i = 0; i < ids.length; i++) { let j = i; while (j + 1 < ids.length && ids[j + 1] === ids[j] + 1) j++; if (j - i < 2) j = i; out.push(j === i ? `${ids[i]}` : `${ids[i]} to ${ids[j]}`); i = j; }
+  return `${ids.length === 1 ? 'token' : 'tokens'} ${out.join(', ')}`;
+};
 const pieceQ = (g, i) => `embed=1&pad=0&seed=${g.codes[i]}` + (g.fam ? `&family=${g.codes[0]}&fi=${i}&fn=${g.codes.length}` : '');
 const stripQ = g => `embed=1&strip=1&seed=${g.codes[0]}&family=${g.codes[0]}&fi=0&fn=${g.codes.length}&seeds=${g.codes.join(',')}`;      // (the whole family in one frame)
 // one read of the contract (eth_call), from the first endpoint that answers
@@ -1414,12 +1420,12 @@ async function loadMine(addr) {
     const arr = o => { const at = parseInt(w[o], 16) / 32, n = parseInt(w[at], 16); return w.slice(at + 1, at + 1 + n); };
     const firsts = arr(0).map(x => parseInt(x, 16)), sizes = arr(1).map(x => parseInt(x, 16));
     const codes = arr(2).map(x => { const c = String.fromCharCode(...x.slice(0, 20).match(/../g).map(b => parseInt(b, 16))); return CODE.test(c) ? c : ''; });
-    if (firsts.length !== sizes.length || sizes.some(n => !(n >= 1 && n <= 20)) || sizes.reduce((a, n) => a + n, 0) !== codes.length) throw new Error('The contract\'s answer could not be read.');
+    if (firsts.length !== sizes.length || sizes.some(n => !(n >= 1 && n <= OWN_MAX)) || sizes.reduce((a, n) => a + n, 0) !== codes.length) throw new Error('The contract\'s answer could not be read.');
     let k = 0; fams = firsts.map((f, i) => ({ ids: Array.from({ length: sizes[i] }, (_, j) => f + j), codes: codes.slice(k, k += sizes[i]) }));
   }
   const drawn = fams.filter(f => f.codes.every(Boolean)), lone = drawn.filter(f => f.ids.length === 1);
   const groups = drawn.filter(f => f.ids.length > 1).map(f => ({ n: -f.ids[0], fam: true, ids: f.ids, codes: f.codes }));
-  if (lone.length) groups.push({ n: SINGLES, fam: false, ids: lone.map(f => f.ids[0]), codes: lone.map(f => f.codes[0]) });
+  for (let k = 0; k < lone.length; k += OWN_MAX) { const part = lone.slice(k, k + OWN_MAX); groups.push({ n: SINGLES - k / OWN_MAX, fam: false, ids: part.map(f => f.ids[0]), codes: part.map(f => f.codes[0]) }); }      // (single pieces: 20 to a cluster)
   groups.sort((a, b) => a.ids[0] - b.ids[0]);
   return { addr, groups, waiting: fams.reduce((a, f) => a + f.ids.length, 0) - drawn.reduce((a, f) => a + f.ids.length, 0) };
 }
