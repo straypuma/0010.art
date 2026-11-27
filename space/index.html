@@ -63,7 +63,7 @@
   .link:hover { color: var(--fg); }
   .btn { background: var(--btn); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
   .btn:hover { background: var(--btn-h); }
-  .btn.soon, .btn.soon:hover, .btn.soon:disabled { margin-top: 8px; background: var(--btn); color: var(--dim); cursor: default; opacity: 1; }   /* until the mint opens; then a link to the mint page */
+  a.btn.mint { display: inline-block; margin-top: 8px; color: var(--fg); text-decoration: none; }   /* the link to the mint page (a greyed "minting soon" button until November 27, 2026) */
   /* the menu: a tree that opens and closes */
   #side nav { display: flex; flex-direction: column; align-items: flex-start; flex: none; }
   #side nav > button { flex: none; }
@@ -305,7 +305,7 @@
         <dt>Allowlist</dt><dd>48 hours · 0.0099 ETH</dd>
         <dt>Public</dt><dd>48 hours · 0.015 ETH</dd>
       </dl>
-      <p><button class="btn soon" type="button" disabled>minting soon</button></p>
+      <p><a class="btn mint" href="https://0010.art/vigil/mint/" target="_blank" rel="noopener">mint</a></p>
     </section>
   </aside>
 </div>
