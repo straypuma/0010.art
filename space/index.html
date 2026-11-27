@@ -63,7 +63,10 @@
   .link:hover { color: var(--fg); }
   .btn { background: var(--btn); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
   .btn:hover { background: var(--btn-h); }
-  a.btn.mint { display: inline-block; margin-top: 8px; color: var(--fg); text-decoration: none; }   /* the link to the mint page (a greyed "minting soon" button until November 27, 2026) */
+  /* the link to the mint page (a greyed "minting soon" button until November 27, 2026): the vigil page's mint button, a
+     30px box in the site's red with paper letters, lighter under the pointer */
+  a.btn.mint { display: inline-flex; align-items: center; height: 30px; margin-top: 8px; padding: 0 13px; border: 0; border-radius: 4px; background: #c8513f; color: #f3efe8; font-size: 12.5px; line-height: 1; letter-spacing: .02em; text-decoration: none; }
+  a.btn.mint:hover { background: var(--accent); }
   /* the menu: a tree that opens and closes */
   #side nav { display: flex; flex-direction: column; align-items: flex-start; flex: none; }
   #side nav > button { flex: none; }
